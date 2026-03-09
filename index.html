@@ -119,15 +119,23 @@
       .leaflet-tooltip-left.custom-eng-tooltip::before { border-left-color: #cbd5e1; }
       .leaflet-tooltip-bottom.custom-eng-tooltip::before { border-bottom-color: #cbd5e1; }
 
-      /* Effect โหนดกระพริบเมื่อแรงดันตก (Low Pressure Alert) */
+      /* Effect โหนดกระพริบเมื่อแรงดันตก (Low Pressure Alert) และจุดพิกัดผู้ใช้ */
       @keyframes alert-glow {
         0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
         70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
         100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
       }
+      @keyframes user-glow {
+        0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
+        70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
+      }
       .node-alert > div {
         animation: alert-glow 1.5s infinite;
         background-color: #ef4444 !important;
+      }
+      .user-marker-pulse {
+        animation: user-glow 2s infinite;
       }
     </style>
 </head>
@@ -247,6 +255,7 @@
         let map, mode = 'select', nodes = [], links = [], startNodeId = null;
         let mapItems = { m: {}, p: {} }; 
         let showRes = true, selId = null, isCalculated = false;
+        let userLocMarker = null; // เพิ่มตัวแปรเก็บหมุดแสดงตำแหน่งผู้ใช้งาน
         
         // ตัวแปรสำหรับ Context Menu อุปกรณ์ท่อ
         let ctxPipeId = null;
@@ -773,11 +782,37 @@
         }
 
         function toggleRes() { showRes = !showRes; render(); }
+        
+        // --- ส่วนที่ปรับปรุง: ฟังก์ชันค้นหาตำแหน่งและแสดงหมุด ---
         function locate() { 
             if(!navigator.geolocation) return alert("ไม่รองรับ GPS");
+            
+            log("Locating...");
             navigator.geolocation.getCurrentPosition(
-                pos => map.setView([pos.coords.latitude, pos.coords.longitude], 18),
-                err => alert("หาตำแหน่งไม่พบ"),
+                pos => {
+                    const latlng = [pos.coords.latitude, pos.coords.longitude];
+                    map.setView(latlng, 18); // ซูมไปที่ตำแหน่ง
+                    
+                    // หากมีหมุดเดิมอยู่แล้ว ให้อัปเดตตำแหน่ง ถ้ายังไม่มีให้สร้างใหม่
+                    if (userLocMarker) {
+                        userLocMarker.setLatLng(latlng);
+                    } else {
+                        // สร้างหมุดสีฟ้ากระพริบ เพื่อบอกว่านี่คือ "ตำแหน่งผู้ใช้"
+                        const iconHtml = `<div class="user-marker-pulse" style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 10px rgba(59,130,246,0.5);"></div>`;
+                        userLocMarker = L.marker(latlng, { 
+                            icon: L.divIcon({ className: 'flex justify-center items-center', html: iconHtml, iconSize: [16, 16] }),
+                            zIndexOffset: 1000 // ให้อยู่ด้านบนโหนดอื่นๆ
+                        }).addTo(map);
+                        
+                        // ใส่ Tooltip ให้หมุด
+                        userLocMarker.bindTooltip("ตำแหน่งของคุณ", { permanent: false, direction: 'top', className: 'custom-eng-tooltip' }).openTooltip();
+                    }
+                    log("Ready");
+                },
+                err => {
+                    alert("หาตำแหน่งไม่พบ กรุณาเปิดการอนุญาตการเข้าถึงตำแหน่ง GPS ของเบราว์เซอร์");
+                    log("Ready");
+                },
                 { enableHighAccuracy: true }
             );
         }
