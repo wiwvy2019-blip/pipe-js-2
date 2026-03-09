@@ -13,6 +13,7 @@
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
     
     <style>
       :root {
@@ -703,7 +704,7 @@
             }
         }
         
-        // --- 7. การบันทึกและแชร์ข้อมูล ---
+        // --- 7. การบันทึกและแชร์ข้อมูลด้วย Cloud / Fallback ---
         async function saveData() { 
             const n = document.getElementById('pjName').value; 
             if(!n) return alert("ระบุชื่อโครงการ"); 
@@ -715,7 +716,7 @@
             alert("บันทึกข้อมูลและวิเคราะห์ระบบเรียบร้อยแล้ว"); 
             render();
         }
-        function refreshPjList() { const sel = document.getElementById('pjList'); sel.innerHTML = '<option value="">-- Load Project --</option>'; for(let i=0; i<localStorage.length; i++) { const k = localStorage.key(i); if(k.startsWith('pj_')) sel.innerHTML += `<option value="${k}">${k.replace('pj_','')}</option>`; } }
+        function refreshPjList() { const sel = document.getElementById('pjList'); sel.innerHTML = '<option value="">-- โหลดงานที่บันทึกไว้ --</option>'; for(let i=0; i<localStorage.length; i++) { const k = localStorage.key(i); if(k.startsWith('pj_')) sel.innerHTML += `<option value="${k}">${k.replace('pj_','')}</option>`; } }
         function loadData() { 
             const k = document.getElementById('pjList').value; if(!k) return; 
             const d = JSON.parse(localStorage.getItem(k)); if(d) { nodes = d.nodes; links = d.links; calculate().then(() => { render(); log("Loaded"); }); } 
@@ -723,27 +724,49 @@
         function clearData() { if(confirm("ต้องการล้างหน้าจอทั้งหมดหรือไม่?")) { nodes=[]; links=[]; isCalculated=false; render(); } }
 
         function shareURL() {
-            if(nodes.length === 0) return alert("ไม่มีข้อมูล");
-            try {
-                const dataStr = JSON.stringify({nodes, links});
-                const encoded = btoa(encodeURIComponent(dataStr));
-                const url = window.location.origin + window.location.pathname + '#' + encoded;
-                const el = document.createElement('textarea');
-                el.value = url; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-                alert("คัดลอกลิงก์เรียบร้อยแล้ว ส่งให้เพื่อนได้เลย!");
-            } catch(e) { alert("เกิดข้อผิดพลาด"); }
+            if(nodes.length === 0) return alert("ไม่มีข้อมูลที่จะแชร์");
+            // เลือกระบบ Cloud หากใช้งานได้ (รันผ่าน Canvas environment)
+            if(window.shareProjectToCloud) {
+                window.shareProjectToCloud(nodes, links);
+            } else {
+                // ระบบ Fallback ย่อลิงก์แบบออฟไลน์ด้วยตัวบีบอัด LZString
+                try {
+                    const dataStr = JSON.stringify({nodes, links});
+                    const encoded = LZString.compressToEncodedURIComponent(dataStr);
+                    const url = window.location.origin + window.location.pathname + '#v2=' + encoded;
+                    const el = document.createElement('textarea');
+                    el.value = url; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+                    alert("✅ คัดลอกลิงก์เรียบร้อยแล้ว (โหมดออฟไลน์)\nสามารถส่งลิงก์นี้ให้เพื่อนเปิดทำงานต่อได้เลยครับ");
+                } catch(e) { alert("เกิดข้อผิดพลาดในการสร้างลิงก์"); }
+            }
         }
 
+        // ฟังก์ชันรับข้อมูลจาก Cloud เข้าสู่โปรแกรม
+        window.loadDataFromCloud = function(n, l) {
+            nodes = n; links = l;
+            if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
+            calculate().then(() => { render(); log("Loaded from Share"); });
+        };
+
         function checkUrlHash() {
-            if(window.location.hash && window.location.hash.length > 5) {
+            if(window.location.hash) {
                 try {
-                    const decoded = decodeURIComponent(atob(window.location.hash.substring(1)));
-                    const data = JSON.parse(decoded);
-                    if(data && data.nodes && data.links) {
-                        nodes = data.nodes; links = data.links;
-                        if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
-                        calculate().then(() => { render(); });
-                        window.history.replaceState(null, null, ' '); // Clean URL
+                    let dataStr;
+                    // ตรวจจับระบบบีบอัดใหม่ (LZString) และระบบดั้งเดิม
+                    if(window.location.hash.startsWith('#v2=')) {
+                        dataStr = LZString.decompressFromEncodedURIComponent(window.location.hash.substring(4));
+                    } else if (window.location.hash.length > 5) {
+                        dataStr = decodeURIComponent(atob(window.location.hash.substring(1))); 
+                    }
+
+                    if(dataStr) {
+                        const data = JSON.parse(dataStr);
+                        if(data && data.nodes && data.links) {
+                            nodes = data.nodes; links = data.links;
+                            if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
+                            calculate().then(() => { render(); });
+                            window.history.replaceState(null, null, window.location.pathname); // ล้าง URL ให้สะอาด
+                        }
                     }
                 } catch(e) {}
             }
@@ -769,8 +792,7 @@
                     const sources = nodes.filter(n => ['reservoir','tank','pump'].includes(n.type));
                     if(sources.length === 0) { alert("กรุณาระบุแหล่งจ่ายน้ำ (Reservoir/Tank) หรือปั๊ม"); resolve(); return; }
 
-                    // --- ส่วนเพิ่มใหม่: วิเคราะห์การเชื่อมต่อของกราฟ (Graph Connectivity Analysis - BFS) ---
-                    // ป้องกันไม่ให้จุดที่ถูกตัดขาดจากแหล่งน้ำ (โดนวาล์วปิดหัวท้าย) มีการคำนวณ Flow แบบหลอกๆ
+                    // --- วิเคราะห์การเชื่อมต่อของกราฟ (Graph Connectivity Analysis - BFS) ---
                     const adj = {};
                     nodes.forEach(n => adj[n.id] = []);
                     links.forEach(l => {
@@ -780,7 +802,6 @@
                             let pct1 = n1.type === 'valve' ? (n1.openPercent !== undefined ? n1.openPercent : (n1.status === 'CLOSED' ? 0 : 100)) : 100;
                             let pct2 = n2.type === 'valve' ? (n2.openPercent !== undefined ? n2.openPercent : (n2.status === 'CLOSED' ? 0 : 100)) : 100;
                             
-                            // ถ้าวาล์วไม่ได้ปิดสนิททั้งสองฝั่ง ให้ถือว่าท่อเส้นนี้เชื่อมต่อกัน
                             if (pct1 > 0 && pct2 > 0) {
                                 adj[l.s].push(l.e);
                                 adj[l.e].push(l.s);
@@ -802,7 +823,6 @@
                             }
                         });
                     }
-                    // ---------------------------------------------------------------------------------
 
                     // กำหนด Head เริ่มต้น
                     sources.forEach(s => { 
@@ -811,16 +831,14 @@
                     
                     nodes.forEach(n => { 
                         if(!['reservoir','tank','pump'].includes(n.type)) {
-                            // ถ้าเชื่อมต่อกับแหล่งน้ำ ให้เดา Head เริ่มต้น แต่ถ้าถูกตัดขาด Head = Elevation (Pressure = 0)
                             n.head = connectedNodes.has(n.id) ? n.el + 10 : n.el;
                         }
                     });
 
                     // Algorithm จำลองแรงดันเบื้องต้น (Iterative Mass Balance - Nodal Method)
-                    for(let iter=0; iter<1000; iter++) { // เพิ่มลูปให้ถึง 1000 เพื่อความเสถียร
+                    for(let iter=0; iter<1000; iter++) { 
                         let maxRes = 0;
                         nodes.forEach(n => {
-                            // ข้ามโหนดแหล่งน้ำ หรือ โหนดที่ถูกตัดขาดจากระบบ (Isolated Nodes)
                             if(['reservoir','tank','pump'].includes(n.type) || !connectedNodes.has(n.id)) return;
                             
                             let sumQ = 0, sumDqDh = 0;
@@ -829,21 +847,18 @@
                                 const neighborId = l.s === n.id ? l.e : l.s;
                                 const nb = nodes.find(x => x.id === neighborId);
                                 
-                                // ตรวจสอบเปอร์เซ็นต์การเปิดวาล์ว
                                 let pct1 = n.type === 'valve' ? (n.openPercent !== undefined ? n.openPercent : (n.status === 'CLOSED' ? 0 : 100)) : 100;
                                 let pct2 = nb.type === 'valve' ? (nb.openPercent !== undefined ? nb.openPercent : (nb.status === 'CLOSED' ? 0 : 100)) : 100;
                                 
-                                if (pct1 === 0 || pct2 === 0) return; // วาล์วปิดสนิท (Flow = 0)
+                                if (pct1 === 0 || pct2 === 0) return; 
                                 
                                 const D = l.dia / 1000;
                                 const C = l.c || 140; 
                                 const len = Math.max(l.len, 0.1);
                                 
-                                // จำลอง Headloss จากการหรี่วาล์ว (Area Throttle Multiplier)
                                 let throttle = Math.min(pct1, pct2) / 100.0;
                                 let throttleMultiplier = Math.pow(1 / throttle, 2);
                                 
-                                // สมการ Hazen-Williams พร้อมตัวคูณความต้านทานจากการหรี่วาล์ว
                                 const K = (10.67 * len / (Math.pow(C, 1.852) * Math.pow(D, 4.8704))) * throttleMultiplier;
                                 
                                 let dH = nb.head - n.head;
@@ -851,9 +866,8 @@
                                 const absDH = Math.abs(dH);
                                 
                                 let Q = 0, dQdH = 0;
-                                const expQ = 1 / 1.852; // คงค่าเศษส่วนตามทฤษฎีไว้ตลอดการคำนวณ
+                                const expQ = 1 / 1.852; 
                                 if (absDH > 1e-6) {
-                                    // Q = (dH / K)^(1/1.852)
                                     Q = sign * Math.pow(absDH / K, expQ);
                                     dQdH = expQ * Math.abs(Q) / absDH;
                                 }
@@ -866,12 +880,10 @@
 
                             if(sumDqDh > 1e-10) {
                                 let dh = residual / sumDqDh;
-                                dh = Math.max(-10, Math.min(10, dh)); // limit step จาก 5 เป็น 10 ให้ลู่เข้าได้เสถียรขึ้น
+                                dh = Math.max(-10, Math.min(10, dh)); 
                                 n.head += dh;
                             }
 
-                            // สำหรับ PRV: ปรับสมดุลตามทฤษฎี โดยจำกัด Total Head ของ Node ไม่ให้เกิน Set Target 
-                            // ส่งผลให้อัตราการไหลของท่อที่อยู่ดาวน์สตรีมลดลงอย่างถูกต้อง
                             if (n.type === 'prv') {
                                 const targetHead = n.el + (n.setting || 15);
                                 if (n.head > targetHead) {
@@ -879,7 +891,6 @@
                                 }
                             }
                         });
-                        // ขยับจุด Tolerance ให้ละเอียดขึ้น 100 เท่า (อนุรักษ์มวลระดับ 1e-6 m3/s)
                         if(maxRes < 1e-6) break; 
                     }
 
@@ -887,7 +898,7 @@
                     let totD = 0, totS = 0, minP = 999;
                     
                     nodes.forEach(n => { 
-                        n.p = Math.max(0, n.head - n.el); // Pressure (m)
+                        n.p = Math.max(0, n.head - n.el); 
                         if(n.dem) totD += n.dem;
                         if (!['reservoir','tank','pump'].includes(n.type) && n.p < minP) minP = n.p;
                     });
@@ -902,13 +913,11 @@
                         const absDH = Math.abs(dH);
                         const flowDirection = dH >= 0 ? 1 : -1;
 
-                        // ตรวจสอบว่าท่อถูกตัดขาดจากแหล่งน้ำหรือไม่
                         const isIsolated = !connectedNodes.has(n1.id) || !connectedNodes.has(n2.id);
 
                         if (pct1 === 0 || pct2 === 0 || isIsolated) {
                             l.flow = 0;
                             l.vel = 0;
-                            // ถ้าวาล์วปิดสนิท Headloss = แรงดันตกคร่อม, ถ้าแค่ท่อลอยๆ ถูกตัดขาด HL = 0
                             l.hl = (pct1 === 0 || pct2 === 0) ? absDH : 0; 
                         } else {
                             const D = l.dia / 1000;
@@ -921,19 +930,17 @@
                             const K = (10.67 * len / (Math.pow(C, 1.852) * Math.pow(D, 4.8704))) * throttleMultiplier;
                             const expQ = 1 / 1.852; 
                             
-                            // แก้ไข: ใช้ 1/1.852 แทนที่ฮาร์ดโค้ด 0.54 เพื่อให้สมดุลมวล Continuity สมบูรณ์
                             const Q_m3s = absDH > 1e-6 ? Math.pow(absDH / K, expQ) : 0;
                             
-                            l.flow = Q_m3s * 3600 * flowDirection; // m3/h 
-                            l.vel = Q_m3s / (Math.PI * Math.pow(D/2, 2)) * flowDirection; // m/s
-                            l.hl = absDH; // Headloss (m)
+                            l.flow = Q_m3s * 3600 * flowDirection; 
+                            l.vel = Q_m3s / (Math.PI * Math.pow(D/2, 2)) * flowDirection; 
+                            l.hl = absDH; 
 
                             if(['reservoir','tank','pump'].includes(n1.type) && dH>0) totS += Math.abs(l.flow);
                             if(['reservoir','tank','pump'].includes(n2.type) && dH<0) totS += Math.abs(l.flow);
                         }
                     });
                     
-                    // แสดงผล Dashboard
                     document.getElementById('val-supply').innerText = totS.toFixed(2) + ' m³/h';
                     document.getElementById('val-demand').innerText = totD.toFixed(2) + ' m³/h';
                     document.getElementById('val-min-p').innerText = ((minP === 999 ? 0 : minP) / 10.197).toFixed(2) + ' bar';
@@ -942,6 +949,99 @@
                     isCalculated = true; render(); log("Done"); resolve();
                 }, 100);
             });
+        }
+    </script>
+
+    <!-- ระบบ Cloud Sharing ข้ามอุปกรณ์ (Firebase Module) -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const isCloudAvailable = typeof __firebase_config !== 'undefined';
+        
+        if (isCloudAvailable) {
+            const firebaseConfig = JSON.parse(__firebase_config);
+            const app = initializeApp(firebaseConfig);
+            const auth = getAuth(app);
+            const db = getFirestore(app);
+            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+            
+            let authPromise = null;
+            const ensureAuth = () => {
+                if (authPromise) return authPromise;
+                authPromise = (async () => {
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                })();
+                return authPromise;
+            };
+
+            // สร้างฟังก์ชันแชร์โปรเจกต์ไปยัง Cloud อัตโนมัติ
+            window.shareProjectToCloud = async (nodesData, linksData) => {
+                const stMsg = document.getElementById('st-msg');
+                if (stMsg) stMsg.innerText = "UPLOADING TO CLOUD...";
+                try {
+                    await ensureAuth();
+                    const shareId = 'pj_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'shared_projects', shareId);
+                    
+                    await setDoc(docRef, {
+                        nodes: nodesData,
+                        links: linksData,
+                        timestamp: new Date().toISOString()
+                    });
+                    
+                    // สร้างลิงก์สั้นและคลีน สำหรับส่งต่อ
+                    const url = window.location.origin + window.location.pathname + '?share=' + shareId;
+                    
+                    const el = document.createElement('textarea');
+                    el.value = url; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
+                    
+                    alert("✅ คัดลอกลิงก์สำเร็จแล้ว!\nลิงก์สั้นถูกสร้างผ่านระบบ Cloud เรียบร้อย คุณสามารถนำไปวางส่งให้เพื่อนเปิดเพื่อแก้ไข/ทำงานต่อในเครื่องอื่นได้ทันทีครับ");
+                } catch(e) {
+                    console.error("Cloud share error:", e);
+                    alert("❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Cloud");
+                }
+                if (stMsg) stMsg.innerText = "READY";
+            };
+
+            // ตรวจจับและดึงข้อมูลเมื่อมีการเปิดลิงก์แชร์จากผู้อื่น
+            window.loadSharedProjectCloud = async () => {
+                const urlParams = new URLSearchParams(window.location.search);
+                const shareId = urlParams.get('share');
+                if (!shareId) return;
+
+                const stMsg = document.getElementById('st-msg');
+                if (stMsg) stMsg.innerText = "DOWNLOADING...";
+                
+                try {
+                    await ensureAuth();
+                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'shared_projects', shareId);
+                    const snap = await getDoc(docRef);
+                    
+                    if (snap.exists()) {
+                        const data = snap.data();
+                        if (window.loadDataFromCloud) {
+                            window.loadDataFromCloud(data.nodes, data.links);
+                        }
+                    } else {
+                        alert("❌ ไม่พบข้อมูล หรือลิงก์แชร์หมดอายุ");
+                    }
+                } catch(e) {
+                    console.error("Cloud load error:", e);
+                    alert("❌ เกิดข้อผิดพลาดในการดาวน์โหลดข้อมูลจากระบบ Cloud");
+                }
+                
+                if (stMsg) stMsg.innerText = "READY";
+                // ล้างพารามิเตอร์ด้านหลังลิงก์ทิ้งเพื่อความสวยงาม
+                window.history.replaceState(null, null, window.location.pathname);
+            };
+
+            window.loadSharedProjectCloud();
         }
     </script>
 </body>
