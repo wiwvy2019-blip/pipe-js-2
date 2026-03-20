@@ -5,1079 +5,912 @@
     <meta charset="utf-8">
     <title>Pipe-js Pro | Professional Engineering Solver</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    
-    <!-- Libraries -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Sarabun:wght@400;500;600;700&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css" />
     <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/lz-string/1.4.4/lz-string.min.js"></script>
-    
     <style>
-      :root {
-        --primary: #2563eb;
-        --demand: #dc2626;
-        --source: #0891b2;
-        --dark: #0f172a;
-      }
-
-      html, body { height: 100vh; width: 100vw; margin: 0; padding: 0; overflow: hidden; background: #f8fafc; font-family: 'Sarabun', sans-serif; }
-      #map { position: absolute; inset: 0; z-index: 1; background: #e2e8f0; }
-
-      .ui-layer { position: relative; z-index: 1000; pointer-events: none; height: 100%; }
-      .ui-layer > * { pointer-events: auto; }
-
-      .drawer {
-        position: fixed; top: 0; left: -320px; bottom: 0; width: 320px;
-        background: rgba(255,255,255,0.95); backdrop-filter: blur(12px);
-        box-shadow: 20px 0 50px rgba(0,0,0,0.1); transition: transform 0.4s ease;
-        display: flex; flex-direction: column; z-index: 2000; border-right: 1px solid rgba(0,0,0,0.05);
-      }
-      .drawer.open { transform: translateX(320px); }
-
-      .float-btn {
-        background: white; border: 1px solid rgba(0,0,0,0.1); border-radius: 14px;
-        width: 48px; height: 48px; display: flex; align-items: center; justify-content: center;
-        box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1); cursor: pointer; transition: all 0.2s; color: #64748b;
-      }
-      .float-btn.active { background: var(--primary); color: white; }
-
-      .label-wrapper { position: relative; width: 0; height: 0; overflow: visible; }
-
-      .eng-label-box {
-        position: absolute;
-        transform: translate(-50%, -50%);
-        background: rgba(255, 255, 255, 0.95); 
-        border: 1px solid #cbd5e1;
-        border-radius: 6px; 
-        padding: 5px 8px; 
-        font-family: 'Inter', sans-serif;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.1); 
-        pointer-events: auto;
-        display: flex; flex-direction: column; gap: 1px; 
-        min-width: 105px;
-        backdrop-filter: blur(4px);
-        z-index: 10;
-      }
-
-      .lbl-row { font-size: 10px; line-height: 1.2; display: flex; justify-content: space-between; gap: 8px; }
-      .lbl-k { color: #64748b; font-weight: 500; }
-      .lbl-v { font-weight: 800; color: #0f172a; }
-      .lbl-u { font-size: 8px; color: #94a3b8; }
-
-      .prop-panel {
-        position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
-        width: 92%; max-width: 440px; background: white; border-radius: 24px;
-        padding: 24px; box-shadow: 0 -10px 40px rgba(0,0,0,0.2); border: 1px solid #f1f5f9; z-index: 2100;
-        max-height: 80vh; display: flex; flex-direction: column;
-      }
-
-      .eng-input {
-        width: 100%; padding: 12px; border: 1.5px solid #e2e8f0; border-radius: 12px;
-        font-size: 14px; font-weight: 700; outline: none; transition: 0.2s;
-      }
-      .eng-input:focus { border-color: var(--primary); background: #f0f7ff; }
-
-      .node-marker { display: flex; align-items: center; justify-content: center; position: relative; }
-      
-      .panel-res-box {
-        background: #f1f5f9; border-radius: 12px; padding: 12px; margin-bottom: 16px;
-        border: 1px solid #e2e8f0;
-      }
-      .res-item { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; }
-      .res-label { color: #64748b; font-weight: 600; }
-      .res-val { font-weight: 800; color: #0f172a; }
-
-      .system-summary {
-        position: fixed; top: 80px; right: 20px; background: rgba(255, 255, 255, 0.9);
-        backdrop-filter: blur(8px); border: 1px solid #cbd5e1; border-radius: 12px;
-        padding: 12px; width: 180px; box-shadow: 0 4px 20px rgba(0,0,0,0.08);
-        z-index: 1500; display: none; flex-direction: column; gap: 6px;
-      }
-      .system-summary.show { display: flex; }
-      .sys-row { display: flex; justify-content: space-between; align-items: center; font-size: 11px; }
-      .sys-label { font-weight: 600; color: #64748b; }
-      .sys-val { font-weight: 800; font-family: 'Inter', sans-serif; }
-
-      /* Custom Tooltip Style สำหรับลูกศรชี้ไม่ทับเส้นท่อ */
-      .custom-eng-tooltip {
-          background: rgba(255, 255, 255, 0.95);
-          border: 1px solid #cbd5e1;
-          border-radius: 6px;
-          padding: 6px 10px;
-          font-family: 'Inter', 'Sarabun', sans-serif;
-          box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-          font-size: 11px;
-          line-height: 1.4;
-          backdrop-filter: blur(4px);
-          white-space: nowrap;
-      }
-      .leaflet-tooltip-top.custom-eng-tooltip::before { border-top-color: #cbd5e1; }
-      .leaflet-tooltip-right.custom-eng-tooltip::before { border-right-color: #cbd5e1; }
-      .leaflet-tooltip-left.custom-eng-tooltip::before { border-left-color: #cbd5e1; }
-      .leaflet-tooltip-bottom.custom-eng-tooltip::before { border-bottom-color: #cbd5e1; }
-
-      /* Effect โหนดกระพริบเมื่อแรงดันตก (Low Pressure Alert) และจุดพิกัดผู้ใช้ */
-      @keyframes alert-glow {
-        0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-        70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-      }
-      @keyframes user-glow {
-        0% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0.7); }
-        70% { box-shadow: 0 0 0 12px rgba(59, 130, 246, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(59, 130, 246, 0); }
-      }
-      .node-alert > div {
-        animation: alert-glow 1.5s infinite;
-        background-color: #ef4444 !important;
-      }
-      .user-marker-pulse {
-        animation: user-glow 2s infinite;
-      }
+      :root{--primary:#2563eb;--teal:#0d9488;--dark:#0f172a;}
+      html,body{height:100vh;width:100vw;margin:0;padding:0;overflow:hidden;background:#f8fafc;font-family:'Sarabun',sans-serif;}
+      #map{position:absolute;inset:0;z-index:1;background:#e2e8f0;}
+      .ui-layer{position:relative;z-index:1000;pointer-events:none;height:100%;}
+      .ui-layer>*{pointer-events:auto;}
+      .drawer{position:fixed;top:0;left:-340px;bottom:0;width:340px;background:rgba(255,255,255,0.97);backdrop-filter:blur(16px);box-shadow:20px 0 60px rgba(0,0,0,0.12);transition:transform 0.4s cubic-bezier(0.4,0,0.2,1);display:flex;flex-direction:column;z-index:2000;border-right:1px solid rgba(0,0,0,0.06);}
+      .drawer.open{transform:translateX(340px);}
+      .float-btn{background:white;border:1px solid rgba(0,0,0,0.1);border-radius:14px;min-width:48px;height:48px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;box-shadow:0 4px 14px rgba(0,0,0,0.12);cursor:pointer;transition:all 0.2s;color:#475569;font-size:11px;font-weight:700;white-space:nowrap;}
+      .float-btn:hover{background:#f8fafc;transform:translateY(-1px);}
+      .float-btn.active{background:var(--primary);color:white;border-color:var(--primary);}
+      .float-btn i{font-size:15px;}
+      .tool-card{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border:1.5px solid #e2e8f0;border-radius:14px;background:white;gap:4px;transition:all 0.18s;min-height:68px;}
+      .tool-card:hover{border-color:#93c5fd;background:#eff6ff;transform:translateY(-1px);}
+      .tool-card.active{border-color:#2563eb;background:#eff6ff;box-shadow:0 0 0 3px rgba(37,99,235,0.15);}
+      .tool-card .tc-icon{width:32px;height:32px;display:flex;align-items:center;justify-content:center;}
+      .tool-card .tc-label{font-size:10px;font-weight:700;color:#475569;text-align:center;line-height:1.2;}
+      .prop-panel{position:fixed;bottom:20px;left:50%;transform:translateX(-50%);width:92%;max-width:460px;background:white;border-radius:24px;padding:24px;box-shadow:0 -10px 40px rgba(0,0,0,0.2);border:1px solid #f1f5f9;z-index:2100;max-height:80vh;display:flex;flex-direction:column;}
+      .eng-input{width:100%;padding:12px;border:1.5px solid #e2e8f0;border-radius:12px;font-size:14px;font-weight:700;outline:none;transition:0.2s;box-sizing:border-box;}
+      .eng-input:focus{border-color:var(--primary);background:#f0f7ff;}
+      .panel-res-box{background:#f1f5f9;border-radius:12px;padding:12px;margin-bottom:16px;border:1px solid #e2e8f0;}
+      .res-item{display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px;}
+      .res-label{color:#64748b;font-weight:600;}
+      .res-val{font-weight:800;color:#0f172a;}
+      .system-summary{position:fixed;top:80px;right:20px;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);border:1px solid #cbd5e1;border-radius:16px;padding:14px;width:190px;box-shadow:0 4px 24px rgba(0,0,0,0.1);z-index:1500;display:none;flex-direction:column;gap:7px;}
+      .system-summary.show{display:flex;}
+      .sys-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;}
+      .sys-label{font-weight:600;color:#64748b;}
+      .sys-val{font-weight:800;font-family:'Inter',sans-serif;}
+      .custom-eng-tooltip{background:rgba(255,255,255,0.97);border:1px solid #cbd5e1;border-radius:8px;padding:7px 11px;font-family:'Inter','Sarabun',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.12);font-size:11px;line-height:1.5;backdrop-filter:blur(4px);white-space:nowrap;}
+      .leaflet-tooltip-top.custom-eng-tooltip::before{border-top-color:#cbd5e1;}
+      .leaflet-tooltip-right.custom-eng-tooltip::before{border-right-color:#cbd5e1;}
+      .leaflet-tooltip-left.custom-eng-tooltip::before{border-left-color:#cbd5e1;}
+      .leaflet-tooltip-bottom.custom-eng-tooltip::before{border-bottom-color:#cbd5e1;}
+      @keyframes alert-glow{0%{box-shadow:0 0 0 0 rgba(239,68,68,0.7)}70%{box-shadow:0 0 0 10px rgba(239,68,68,0)}100%{box-shadow:0 0 0 0 rgba(239,68,68,0)}}
+      @keyframes user-glow{0%{box-shadow:0 0 0 0 rgba(59,130,246,0.7)}70%{box-shadow:0 0 0 12px rgba(59,130,246,0)}100%{box-shadow:0 0 0 0 rgba(59,130,246,0)}}
+      @keyframes cv-block{0%{opacity:1}50%{opacity:0.3}100%{opacity:1}}
+      .node-alert>div{animation:alert-glow 1.5s infinite;background-color:#ef4444 !important;}
+      .user-marker-pulse{animation:user-glow 2s infinite;}
+      .cv-blocked .cv-cross{animation:cv-block 0.8s infinite;}
+      .ctx-menu-item{width:100%;text-align:left;padding:8px 14px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;cursor:pointer;transition:background 0.15s;border:none;background:none;}
+      .ctx-menu-item:hover{background:#f1f5f9;}
+      .node-svg-wrap{display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));}
+      /* Check-valve arrow animation */
+      @keyframes cv-flow{0%{opacity:0;transform:translateX(-4px)}60%{opacity:1}100%{opacity:0;transform:translateX(4px)}}
+      .cv-arrow-ani{animation:cv-flow 1.2s infinite;}
     </style>
 </head>
 <body>
-    <div id="map"></div>
+<div id="map"></div>
+<div class="ui-layer">
 
-    <div class="ui-layer">
-        <!-- Floating Buttons -->
-        <div style="position: fixed; top: 20px; left: 20px;">
-            <button class="float-btn" onclick="toggleDrawer()"><i class="fas fa-bars text-xl"></i></button>
-        </div>
+  <div style="position:fixed;top:16px;left:16px;">
+    <button class="float-btn" onclick="toggleDrawer()"><i class="fas fa-bars"></i><span>เมนู</span></button>
+  </div>
+  <div style="position:fixed;top:16px;right:16px;display:flex;gap:8px;align-items:center;">
+    <button class="float-btn" onclick="forceMapFix()"><i class="fas fa-sync-alt"></i><span>รีเฟรช</span></button>
+    <button class="float-btn" onclick="locate()"><i class="fas fa-crosshairs"></i><span>ตำแหน่งฉัน</span></button>
+    <button class="float-btn active" id="btn-res" onclick="toggleRes()"><i class="fas fa-tags"></i><span id="btn-res-label">ซ่อนป้าย</span></button>
+  </div>
 
-        <div style="position: fixed; top: 20px; right: 20px; display: flex; gap: 10px;">
-            <button class="float-btn" onclick="forceMapFix()" title="ซ่อมแผนที่"><i class="fas fa-sync-alt"></i></button>
-            <button class="float-btn" onclick="locate()" title="ตำแหน่งของฉัน"><i class="fas fa-crosshairs"></i></button>
-            <button class="float-btn active" id="btn-res" onclick="toggleRes()" title="ซ่อน/แสดงผล"><i class="fas fa-eye"></i></button>
-        </div>
+  <div id="sysSummary" class="system-summary">
+    <h4 style="font-size:9px;font-weight:900;letter-spacing:0.12em;color:#94a3b8;text-transform:uppercase;margin-bottom:2px;padding-bottom:6px;border-bottom:1px solid #f1f5f9;">⚡ System Status</h4>
+    <div class="sys-row"><span class="sys-label">🔵 จ่ายน้ำรวม:</span><span class="sys-val" style="color:#2563eb;" id="val-supply">0</span></div>
+    <div class="sys-row"><span class="sys-label">🔴 ใช้น้ำรวม:</span><span class="sys-val" style="color:#ef4444;" id="val-demand">0</span></div>
+    <div style="height:1px;background:#f1f5f9;margin:2px 0;"></div>
+    <div class="sys-row"><span class="sys-label">🟡 แรงดันต่ำสุด:</span><span class="sys-val" style="color:#f97316;" id="val-min-p">0</span></div>
+  </div>
 
-        <!-- System Summary Dashboard -->
-        <div id="sysSummary" class="system-summary">
-            <h4 class="text-[10px] font-black uppercase text-slate-400 mb-1 border-b pb-1">System Status</h4>
-            <div class="sys-row">
-                <span class="sys-label">Total Supply:</span>
-                <span class="sys-val text-blue-600" id="val-supply">0</span>
-            </div>
-            <div class="sys-row">
-                <span class="sys-label">Total Demand:</span>
-                <span class="sys-val text-red-500" id="val-demand">0</span>
-            </div>
-            <div class="h-px bg-slate-100 my-1"></div>
-            <div class="sys-row">
-                <span class="sys-label">Min Pressure:</span>
-                <span class="sys-val text-orange-500" id="val-min-p">0</span>
-            </div>
-        </div>
+  <!-- PIPE CONTEXT MENU -->
+  <div id="pipe-ctx-menu" class="hidden fixed bg-white border border-slate-200 shadow-2xl rounded-2xl z-[4000] p-2 w-64" style="pointer-events:auto;">
+    <div style="padding:8px 12px;font-size:10px;font-weight:900;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;border-bottom:1px solid #f1f5f9;margin-bottom:4px;">🔧 จัดการเส้นท่อ</div>
+    <button class="ctx-menu-item" style="color:#2563eb;" onclick="openPipeProps()">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><circle cx="12" cy="12" r="3"/><path d="M19.07 4.93a10 10 0 0 1 0 14.14M4.93 4.93a10 10 0 0 0 0 14.14"/></svg>
+      แก้ไขข้อมูลท่อ
+    </button>
+    <div style="height:1px;background:#f1f5f9;margin:4px 0;"></div>
+    <button class="ctx-menu-item" style="color:#334155;" onclick="insertAcc('valve')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="10" width="20" height="4" rx="2" fill="#22c55e"/><path d="M9 10L12 4L15 10" fill="#22c55e"/><circle cx="12" cy="12" r="2" fill="white"/></svg>
+      ประตูน้ำ (Gate Valve)
+    </button>
+    <button class="ctx-menu-item" style="color:#334155;" onclick="insertAcc('prv')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="8" height="6" rx="2" fill="#f97316"/><rect x="15" y="9" width="8" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="4" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/><text x="12" y="15.5" text-anchor="middle" font-size="6" font-weight="900" fill="#f97316">P</text></svg>
+      PRV (ลดแรงดัน)
+    </button>
+    <!-- CHECK VALVE entry — highlighted teal -->
+    <button class="ctx-menu-item" style="color:#0d9488;font-weight:900;background:#f0fdfa;border-radius:10px;" onclick="insertAcc('check_valve')">
+      <svg width="16" height="16" viewBox="0 0 32 22">
+        <rect x="0" y="8" width="8" height="6" rx="1.5" fill="#0d9488"/>
+        <rect x="24" y="8" width="8" height="6" rx="1.5" fill="#0d9488"/>
+        <rect x="7" y="3" width="18" height="16" rx="3" fill="#ccfbf1" stroke="#0d9488" stroke-width="1.5"/>
+        <line x1="15" y1="4" x2="15" y2="18" stroke="#0f766e" stroke-width="2" stroke-linecap="round"/>
+        <polygon points="15,6 23,11 15,16" fill="#0d9488"/>
+        <polygon points="24,9 28,11 24,13" fill="#14b8a6"/>
+        <line x1="9" y1="8" x2="13" y2="14" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+        <line x1="13" y1="8" x2="9" y2="14" stroke="#ef4444" stroke-width="1.5" stroke-linecap="round"/>
+      </svg>
+      <span>เช็ควาล์ว (Check Valve) <span style="font-size:9px;color:#0f766e;">↪ ป้องกันย้อน</span></span>
+    </button>
+    <button class="ctx-menu-item" style="color:#334155;" onclick="insertAcc('air_valve')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="7" y="11" width="10" height="9" rx="2" fill="#0891b2"/><path d="M9 11L9 7Q12 4 15 7L15 11" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"/></svg>
+      แอร์วาล์ว (Air Valve)
+    </button>
+    <button class="ctx-menu-item" style="color:#334155;" onclick="insertAcc('hydrant')">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="8" y="10" width="8" height="10" rx="1" fill="#dc2626"/><rect x="5" y="14" width="14" height="4" rx="1" fill="#ef4444"/><path d="M10 10V8a2 2 0 0 1 4 0v2" stroke="#dc2626" stroke-width="1.5"/></svg>
+      หัวดับเพลิง (Hydrant)
+    </button>
+  </div>
 
-        <!-- Context Menu เมื่อคลิกที่เส้นท่อ -->
-        <div id="pipe-ctx-menu" class="hidden absolute bg-white border border-slate-200 shadow-xl rounded-xl z-[4000] p-1 text-xs font-bold text-slate-700 w-56 transition-all">
-           <div class="px-3 py-2 border-b text-[10px] text-slate-400 uppercase tracking-widest">เมนูจัดการเส้นท่อ</div>
-           <button class="w-full text-left px-3 py-2 hover:bg-blue-50 rounded-lg flex items-center gap-2 text-blue-600" onclick="openPipeProps()"><i class="fas fa-cog text-blue-500"></i> ดู/แก้ไขข้อมูลท่อ</button>
-           <div class="border-t border-slate-100 my-1"></div>
-           <button class="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center gap-2" onclick="insertAcc('valve')"><i class="fas fa-faucet text-slate-500"></i> ติดตั้งประตูน้ำ (Valve)</button>
-           <button class="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center gap-2" onclick="insertAcc('prv')"><i class="fas fa-compress-arrows-alt text-orange-500"></i> ติดตั้งลดแรงดัน (PRV)</button>
-           <button class="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center gap-2" onclick="insertAcc('air_valve')"><i class="fas fa-wind text-cyan-500"></i> ติดตั้งแอร์วาล์ว (Air Valve)</button>
-           <button class="w-full text-left px-3 py-2 hover:bg-slate-50 rounded-lg flex items-center gap-2" onclick="insertAcc('hydrant')"><i class="fas fa-fire-extinguisher text-red-500"></i> ติดตั้งหัวดับเพลิง (Hydrant)</button>
-        </div>
-
-        <!-- Left Drawer Menu -->
-        <div id="drawer" class="drawer">
-            <div class="p-6 border-b flex justify-between items-center bg-slate-50/50">
-                <div>
-                    <h2 class="text-xl font-black italic text-slate-900 tracking-tighter">PIPE-JS <span class="text-blue-600">PRO</span></h2>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] mt-1">BY คนไม่สัญจร</p>
-                </div>
-                <button onclick="toggleDrawer()"><i class="fas fa-times text-slate-400"></i></button>
-            </div>
-            
-            <div class="p-5 overflow-y-auto flex-1 space-y-6">
-                <div>
-                    <label class="text-[11px] font-bold text-slate-400 uppercase mb-3 block">เครื่องมือสร้างโครงข่าย</label>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="cursor-pointer flex flex-col items-center justify-center p-3 border rounded-xl bg-white" id="t-select" onclick="setMode('select')"><i class="fas fa-mouse-pointer text-slate-500 mb-1"></i><span class="text-[10px]">เลือก</span></div>
-                        <div class="cursor-pointer flex flex-col items-center justify-center p-3 border rounded-xl bg-white" id="t-junction" onclick="setMode('junction')"><i class="fas fa-dot-circle text-blue-500 mb-1"></i><span class="text-[10px]">โหนด</span></div>
-                        <div class="cursor-pointer flex flex-col items-center justify-center p-3 border rounded-xl bg-white" id="t-pipe" onclick="setMode('pipe')"><i class="fas fa-route text-slate-600 mb-1"></i><span class="text-[10px]">ท่อ</span></div>
-                        <div class="cursor-pointer flex flex-col items-center justify-center p-3 border rounded-xl bg-white" id="t-tank" onclick="setMode('tank')"><i class="fas fa-database text-purple-600 mb-1"></i><span class="text-[10px]">ถังสูง</span></div>
-                        <div class="cursor-pointer flex flex-col items-center justify-center p-3 border rounded-xl bg-white" id="t-reservoir" onclick="setMode('reservoir')"><i class="fas fa-water text-cyan-500 mb-1"></i><span class="text-[10px]">แหล่งน้ำ</span></div>
-                        <div class="cursor-pointer flex flex-col items-center justify-center p-3 border rounded-xl bg-white" id="t-pump" onclick="setMode('pump')"><i class="fas fa-fan text-red-500 mb-1"></i><span class="text-[10px]">ปั๊ม</span></div>
-                    </div>
-                </div>
-
-                <div class="bg-slate-900 rounded-2xl p-1 shadow-xl">
-                    <button onclick="calculate()" class="w-full py-4 text-white font-black text-xs rounded-xl bg-blue-600 hover:bg-blue-500 flex items-center justify-center gap-3 active:scale-95 transition-all">
-                        <i class="fas fa-bolt text-yellow-300"></i> วิเคราะห์ระบบ (RUN)
-                    </button>
-                </div>
-
-                <div class="border-t pt-6">
-                    <label class="text-[11px] font-bold text-slate-400 uppercase mb-3 block">จัดการโครงการ</label>
-                    <input type="text" id="pjName" placeholder="ชื่อโครงการ..." class="w-full p-3 border rounded-xl text-sm mb-3 outline-none font-bold">
-                    <div class="grid grid-cols-3 gap-2">
-                        <button onclick="saveData()" class="bg-blue-50 text-blue-600 py-3 rounded-xl text-xs font-bold border border-blue-100 flex justify-center items-center" title="บันทึก"><i class="fas fa-save"></i></button>
-                        <button onclick="shareURL()" class="bg-emerald-50 text-emerald-600 py-3 rounded-xl text-xs font-bold border border-emerald-100 flex justify-center items-center gap-1"><i class="fas fa-share-alt"></i> แชร์</button>
-                        <button onclick="clearData()" class="bg-red-50 text-red-500 py-3 rounded-xl text-xs font-bold border border-red-100 flex justify-center items-center" title="ล้างหน้าจอ"><i class="fas fa-trash"></i></button>
-                    </div>
-                    <select id="pjList" onchange="loadData()" class="w-full mt-3 p-3 border rounded-xl text-xs bg-white font-bold outline-none">
-                        <option value="">-- โหลดงานที่บันทึกไว้ --</option>
-                    </select>
-                </div>
-            </div>
-        </div>
-
-        <!-- Properties Panel -->
-        <div id="propPanel" class="hidden prop-panel">
-            <div class="flex justify-between items-center mb-5 border-b pb-4">
-                <div class="flex items-center gap-4">
-                    <div id="pIcon" class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600 text-lg border border-blue-100"><i class="fas fa-cog"></i></div>
-                    <div>
-                        <h3 class="text-xs font-black uppercase text-slate-800" id="pType">Properties</h3>
-                        <p id="pId" class="text-[10px] text-slate-400 font-mono mt-1"></p>
-                    </div>
-                </div>
-                <button onclick="closeProp()"><i class="fas fa-times text-slate-300"></i></button>
-            </div>
-            <div id="pContent" class="space-y-4 overflow-y-auto px-1 flex-1"></div>
-            <div class="grid grid-cols-2 gap-3 mt-6 pt-5 border-t">
-                <button onclick="saveProp()" class="bg-blue-600 text-white py-4 rounded-xl text-[11px] font-black uppercase shadow-lg">บันทึก</button>
-                <button onclick="deleteEl()" class="bg-white border border-red-100 text-red-500 py-4 rounded-xl text-[11px] font-black uppercase"><i class="fas fa-trash"></i> ลบออก</button>
-            </div>
-        </div>
-
-        <!-- Status Message -->
-        <div id="st-msg" class="fixed bottom-4 right-4 bg-white px-4 py-1.5 rounded-full text-[10px] font-black text-slate-500 shadow-xl border border-slate-100 z-[3000]">READY</div>
+  <!-- DRAWER -->
+  <div id="drawer" class="drawer">
+    <div style="padding:20px 24px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);">
+      <div>
+        <div style="font-size:22px;font-weight:900;font-style:italic;color:white;letter-spacing:-0.03em;font-family:'Inter',sans-serif;">PIPE<span style="color:#60a5fa;">-JS</span> <span style="color:#fbbf24;font-size:14px;vertical-align:middle;border:1px solid #fbbf24;border-radius:4px;padding:1px 6px;">PRO</span></div>
+        <div style="font-size:9px;color:#94a3b8;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">ระบบวิเคราะห์โครงข่ายท่อประปา</div>
+      </div>
+      <button onclick="toggleDrawer()" style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times" style="color:white;"></i></button>
     </div>
 
-    <script>
-        // --- 1. ตัวแปรสถานะหลัก ---
-        let map, mode = 'select', nodes = [], links = [], startNodeId = null;
-        let mapItems = { m: {}, p: {} }; 
-        let showRes = true, selId = null, isCalculated = false;
-        let userLocMarker = null; // เพิ่มตัวแปรเก็บหมุดแสดงตำแหน่งผู้ใช้งาน
-        
-        // ตัวแปรสำหรับ Context Menu อุปกรณ์ท่อ
-        let ctxPipeId = null;
-        let ctxLatLng = null;
+    <div style="padding:16px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:16px;">
+      <div>
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">🛠 เครื่องมือวาดโครงข่าย</div>
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;">
 
-        // --- 2. ฐานข้อมูลขนาดและชนิดท่อ (ตามหลักวิศวกรรม) ---
-        const PIPE_SIZES = [15, 20, 25, 32, 40, 50, 65, 80, 100, 150, 200, 250, 300, 350, 400, 450, 500, 600, 700];
-        
-        const MATERIALS = [
-            { id: 'pvc', name: 'PVC / PE (พลาสติก)', c: 150, desc: 'ท่อผิวเรียบ แรงเสียดทานต่ำมาก' },
-            { id: 'steel', name: 'Steel (ท่อเหล็กใหม่)', c: 130, desc: 'ท่อเหล็กเหนียวใหม่' },
-            { id: 'di', name: 'Ductile Iron (เหล็กหล่อ)', c: 120, desc: 'ท่อเหล็กหล่อเหนียวบุซีเมนต์' },
-            { id: 'concrete', name: 'Concrete (คอนกรีต)', c: 110, desc: 'ท่อซีเมนต์หรือคอนกรีต' },
-            { id: 'galv', name: 'Galvanized (อาบสังกะสี)', c: 100, desc: 'ท่อเหล็กอาบสังกะสี (ผ่านการใช้งาน)' }
-        ];
+          <div class="tool-card" id="t-select" onclick="setMode('select')">
+            <div class="tc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><path d="M5 3l14 9-7 1-4 7L5 3z" fill="#64748b" stroke="#64748b" stroke-width="1.5" stroke-linejoin="round"/></svg></div>
+            <span class="tc-label">เลือก/แก้ไข</span>
+          </div>
+          <div class="tool-card" id="t-junction" onclick="setMode('junction')">
+            <div class="tc-icon"><svg width="26" height="26" viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="#3b82f6" stroke="white" stroke-width="2.5"/><circle cx="12" cy="12" r="2.5" fill="white"/></svg></div>
+            <span class="tc-label">จุดต่อ<br>โหนด</span>
+          </div>
+          <div class="tool-card" id="t-pipe" onclick="setMode('pipe')">
+            <div class="tc-icon"><svg width="26" height="26" viewBox="0 0 24 24" fill="none"><line x1="3" y1="12" x2="21" y2="12" stroke="#475569" stroke-width="4" stroke-linecap="round"/><circle cx="3" cy="12" r="2.5" fill="#60a5fa"/><circle cx="21" cy="12" r="2.5" fill="#60a5fa"/></svg></div>
+            <span class="tc-label">วางท่อ<br>เชื่อม</span>
+          </div>
+          <div class="tool-card" id="t-tank" onclick="setMode('tank')">
+            <div class="tc-icon">
+              <svg width="26" height="28" viewBox="0 0 26 28">
+                <line x1="7" y1="22" x2="5" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/>
+                <line x1="19" y1="22" x2="21" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/>
+                <line x1="13" y1="22" x2="13" y2="28" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/>
+                <ellipse cx="13" cy="8" rx="9" ry="3" fill="#c4b5fd"/>
+                <rect x="4" y="8" width="18" height="14" fill="#8b5cf6"/>
+                <ellipse cx="13" cy="22" rx="9" ry="3" fill="#7c3aed"/>
+                <rect x="4" y="15" width="18" height="7" fill="#60a5fa" opacity="0.5"/>
+                <ellipse cx="13" cy="15" rx="9" ry="3" fill="#93c5fd" opacity="0.7"/>
+                <rect x="11" y="22" width="4" height="4" fill="#6d28d9"/>
+              </svg>
+            </div>
+            <span class="tc-label">ถังสูง<br>Tower</span>
+          </div>
+          <div class="tool-card" id="t-reservoir" onclick="setMode('reservoir')">
+            <div class="tc-icon">
+              <svg width="26" height="26" viewBox="0 0 26 26">
+                <rect x="2" y="12" width="22" height="12" rx="2" fill="#0891b2"/>
+                <path d="M2 14 Q7 11 13 14 Q19 17 24 14" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/>
+                <path d="M2 17 Q7 14 13 17 Q19 20 24 17" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/>
+                <rect x="1" y="8" width="24" height="5" rx="1" fill="#0c4a6e"/>
+                <rect x="5" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/>
+                <rect x="11" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/>
+                <rect x="17" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/>
+              </svg>
+            </div>
+            <span class="tc-label">แหล่งน้ำ<br>Reservoir</span>
+          </div>
+          <div class="tool-card" id="t-pump" onclick="setMode('pump')">
+            <div class="tc-icon">
+              <svg width="26" height="26" viewBox="0 0 26 26">
+                <circle cx="13" cy="13" r="9" fill="#ef4444" stroke="#b91c1c" stroke-width="1.5"/>
+                <path d="M13 13 L13 6 Q17 9 13 13Z" fill="white" opacity="0.9"/>
+                <path d="M13 13 L19 16 Q15 20 13 13Z" fill="white" opacity="0.9"/>
+                <path d="M13 13 L7 16 Q6 10 13 13Z" fill="white" opacity="0.9"/>
+                <circle cx="13" cy="13" r="2.5" fill="#b91c1c"/>
+                <rect x="0" y="11" width="5" height="4" rx="1" fill="#dc2626"/>
+                <rect x="21" y="11" width="5" height="4" rx="1" fill="#dc2626"/>
+              </svg>
+            </div>
+            <span class="tc-label">ปั๊มน้ำ<br>Pump</span>
+          </div>
+        </div>
+      </div>
 
-        // --- 3. เริ่มต้นการทำงาน (Initialization) ---
-        window.onload = () => { 
-            initMap(); 
-            refreshPjList(); 
-            checkUrlHash(); 
-        };
+      <div style="background:linear-gradient(135deg,#1e3a5f,#0f172a);border-radius:16px;padding:3px;">
+        <button onclick="calculate()" style="width:100%;padding:14px;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;font-weight:900;font-size:13px;border-radius:13px;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:all 0.2s;" onmouseover="this.style.background='linear-gradient(135deg,#3b82f6,#2563eb)'" onmouseout="this.style.background='linear-gradient(135deg,#2563eb,#1d4ed8)'">
+          <svg width="16" height="16" viewBox="0 0 24 24"><polygon points="5,3 19,12 5,21" fill="#fbbf24"/></svg>
+          วิเคราะห์ระบบ (RUN)
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="#fbbf24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+        </button>
+      </div>
 
-        function log(t) { document.getElementById('st-msg').innerText = t.toUpperCase(); }
+      <div style="border-top:1px solid #f1f5f9;padding-top:16px;">
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:10px;">📁 จัดการโครงการ</div>
+        <input type="text" id="pjName" placeholder="ชื่อโครงการ..." style="width:100%;padding:11px 14px;border:1.5px solid #e2e8f0;border-radius:12px;font-size:13px;font-weight:700;outline:none;margin-bottom:10px;box-sizing:border-box;font-family:'Sarabun',sans-serif;">
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:10px;">
+          <button onclick="saveData()" style="background:#eff6ff;color:#2563eb;border:1.5px solid #bfdbfe;border-radius:12px;padding:11px 6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;" onmouseover="this.style.background='#dbeafe'" onmouseout="this.style.background='#eff6ff'">
+            <i class="fas fa-save" style="font-size:16px;"></i><span>บันทึก</span>
+          </button>
+          <button onclick="shareURL()" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;border-radius:12px;padding:11px 6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
+            <i class="fas fa-share-nodes" style="font-size:16px;"></i><span>แชร์</span>
+          </button>
+          <button onclick="clearData()" style="background:#fff1f2;color:#ef4444;border:1.5px solid #fecdd3;border-radius:12px;padding:11px 6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='#fff1f2'">
+            <i class="fas fa-trash-can" style="font-size:16px;"></i><span>ล้างจอ</span>
+          </button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;">
+          <i class="fas fa-folder-open" style="color:#94a3b8;font-size:14px;flex-shrink:0;"></i>
+          <select id="pjList" onchange="loadData()" style="flex:1;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:12px;font-size:12px;font-weight:700;background:white;outline:none;font-family:'Sarabun',sans-serif;">
+            <option value="">-- โหลดงานที่บันทึกไว้ --</option>
+          </select>
+        </div>
+      </div>
 
-        function initMap() {
-            map = L.map('map', { zoomControl: false, attributionControl: false, doubleClickZoom: false }).setView([14.4069, 102.8686], 15);
-            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19 }).addTo(map);
-            map.on('click', (e) => {
-                document.getElementById('pipe-ctx-menu').classList.add('hidden'); // ซ่อนเมนูเมื่อคลิกพื้นหลัง
-                onMapClick(e);
-            });
-            log("System Ready");
+      <div style="border-top:1px solid #f1f5f9;padding-top:14px;">
+        <div style="font-size:10px;font-weight:800;color:#94a3b8;text-transform:uppercase;letter-spacing:0.12em;margin-bottom:8px;">🎨 ความเร็วน้ำในท่อ</div>
+        <div style="display:flex;flex-direction:column;gap:5px;">
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#475569;"><div style="width:28px;height:5px;background:#60a5fa;border-radius:3px;"></div>&lt; 0.6 m/s (ช้าไป)</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#475569;"><div style="width:28px;height:5px;background:#22c55e;border-radius:3px;"></div>0.6–1.5 m/s (เหมาะสม ✓)</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#475569;"><div style="width:28px;height:5px;background:#f59e0b;border-radius:3px;"></div>1.5–2.5 m/s (เร็วไป)</div>
+          <div style="display:flex;align-items:center;gap:8px;font-size:11px;font-weight:600;color:#475569;"><div style="width:28px;height:5px;background:#ef4444;border-radius:3px;"></div>&gt; 2.5 m/s (อันตราย!)</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PROPERTIES PANEL -->
+  <div id="propPanel" class="hidden prop-panel">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid #f1f5f9;">
+      <div style="display:flex;align-items:center;gap:12px;">
+        <div id="pIcon" style="width:40px;height:40px;border-radius:12px;background:#eff6ff;display:flex;align-items:center;justify-content:center;border:1px solid #bfdbfe;"></div>
+        <div>
+          <h3 style="font-size:12px;font-weight:900;text-transform:uppercase;color:#0f172a;margin:0;" id="pType">Properties</h3>
+          <p id="pId" style="font-size:10px;color:#94a3b8;font-family:monospace;margin:2px 0 0;"></p>
+        </div>
+      </div>
+      <button onclick="closeProp()" style="width:32px;height:32px;border-radius:8px;border:1px solid #e2e8f0;background:white;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times" style="color:#94a3b8;"></i></button>
+    </div>
+    <div id="pContent" style="overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:12px;padding-right:2px;"></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:16px;padding-top:14px;border-top:1px solid #f1f5f9;">
+      <button onclick="saveProp()" style="background:linear-gradient(135deg,#2563eb,#1d4ed8);color:white;padding:14px;border-radius:14px;font-size:11px;font-weight:900;text-transform:uppercase;border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class="fas fa-check"></i> บันทึก</button>
+      <button onclick="deleteEl()" style="background:white;border:1.5px solid #fecdd3;color:#ef4444;padding:14px;border-radius:14px;font-size:11px;font-weight:900;text-transform:uppercase;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;"><i class="fas fa-trash"></i> ลบออก</button>
+    </div>
+  </div>
+
+  <div id="st-msg" style="position:fixed;bottom:16px;right:16px;background:rgba(15,23,42,0.85);backdrop-filter:blur(8px);color:white;padding:7px 14px;border-radius:20px;font-size:10px;font-weight:800;letter-spacing:0.08em;z-index:3000;font-family:'Inter',sans-serif;">⚡ READY</div>
+</div>
+
+<script>
+// ============================================================
+//  SVG ICON LIBRARY
+// ============================================================
+const SVG = {
+  tank:`<svg width="36" height="40" viewBox="0 0 26 28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"><line x1="7" y1="22" x2="5" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="22" x2="21" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><line x1="13" y1="22" x2="13" y2="28" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="13" cy="8" rx="9" ry="3" fill="#c4b5fd"/><rect x="4" y="8" width="18" height="14" fill="#8b5cf6"/><ellipse cx="13" cy="22" rx="9" ry="3" fill="#7c3aed"/><rect x="4" y="15" width="18" height="7" fill="#60a5fa" opacity="0.5"/><ellipse cx="13" cy="15" rx="9" ry="3" fill="#93c5fd" opacity="0.7"/><rect x="11" y="22" width="4" height="4" fill="#6d28d9"/></svg>`,
+  reservoir:`<svg width="36" height="36" viewBox="0 0 26 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"><rect x="2" y="12" width="22" height="12" rx="2" fill="#0891b2"/><path d="M2 14 Q7 11 13 14 Q19 17 24 14" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/><path d="M2 17 Q7 14 13 17 Q19 20 24 17" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/><rect x="1" y="8" width="24" height="5" rx="1" fill="#0c4a6e"/><rect x="5" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/><rect x="11" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/><rect x="17" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/></svg>`,
+  pump:`<svg width="36" height="36" viewBox="0 0 26 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"><circle cx="13" cy="13" r="9" fill="#ef4444" stroke="#b91c1c" stroke-width="1.5"/><path d="M13 13 L13 6 Q17 9 13 13Z" fill="white" opacity="0.9"/><path d="M13 13 L19 16 Q15 20 13 13Z" fill="white" opacity="0.9"/><path d="M13 13 L7 16 Q6 10 13 13Z" fill="white" opacity="0.9"/><circle cx="13" cy="13" r="2.5" fill="#b91c1c"/><rect x="0" y="11" width="5" height="4" rx="1" fill="#dc2626"/><rect x="21" y="11" width="5" height="4" rx="1" fill="#dc2626"/></svg>`,
+  valve_open:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="2" y="10" width="20" height="4" rx="2" fill="#22c55e"/><path d="M8 10 L12 4 L16 10Z" fill="#22c55e" stroke="white" stroke-width="0.5"/><circle cx="12" cy="12" r="2.5" fill="white"/><line x1="12" y1="14" x2="12" y2="20" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/></svg>`,
+  valve_partial:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="2" y="10" width="20" height="4" rx="2" fill="#f59e0b"/><path d="M8 10 L12 4 L16 10Z" fill="#f59e0b" stroke="white" stroke-width="0.5"/><circle cx="12" cy="12" r="2.5" fill="white"/><line x1="12" y1="14" x2="12" y2="20" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/></svg>`,
+  valve_closed:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="2" y="10" width="20" height="4" rx="2" fill="#ef4444"/><path d="M8 14 L12 20 L16 14Z" fill="#ef4444" stroke="white" stroke-width="0.5"/><circle cx="12" cy="12" r="2.5" fill="white"/><line x1="12" y1="4" x2="12" y2="10" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/></svg>`,
+  prv:`<svg width="32" height="32" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text><path d="M8 12 L10 10 L10 14Z" fill="#f97316"/><path d="M16 12 L14 10 L14 14Z" fill="#f97316"/></svg>`,
+  air_valve:`<svg width="30" height="32" viewBox="0 0 24 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><rect x="5" y="14" width="14" height="5" rx="1" fill="#06b6d4"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"/><path d="M7 7 L5 4 M12 6 L12 3 M17 7 L19 4" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="22" x2="12" y2="26" stroke="#0891b2" stroke-width="2" stroke-linecap="round"/></svg>`,
+  hydrant:`<svg width="30" height="34" viewBox="0 0 24 28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="5" rx="1" fill="#ef4444"/><path d="M10 12 L10 8 Q12 6 14 8 L14 12" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/><rect x="9" y="6" width="6" height="3" rx="1" fill="#b91c1c"/><circle cx="12" cy="5" r="2" fill="#b91c1c"/><line x1="5" y1="17.5" x2="2" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="17.5" x2="22" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="24" x2="12" y2="28" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/></svg>`,
+
+  // ── CHECK VALVE ──────────────────────────────────────────────
+  // angle = องศาหมุน (คำนวณจากทิศทาง flow จริง)
+  // blocked = true เมื่อ flow กำลังถูกกัน (แสดง X กระพริบ)
+  check_valve: (angleDeg=0, blocked=false) => {
+    const blockedClass = blocked ? 'cv-blocked' : '';
+    // ลูกศรชี้ทิศทางอนุญาต แอนิเมต เมื่อน้ำไหลผ่าน
+    const arrowAni = !blocked ? 'cv-arrow-ani' : '';
+    return `<svg width="44" height="30" viewBox="0 0 44 30"
+        style="filter:drop-shadow(0 2px 5px rgba(0,0,0,0.3));transform:rotate(${angleDeg}deg);transform-origin:50% 50%;overflow:visible;"
+        class="${blockedClass}">
+      <!-- ท่อซ้าย -->
+      <rect x="0" y="12" width="10" height="6" rx="2" fill="#0d9488"/>
+      <!-- ท่อขวา -->
+      <rect x="34" y="12" width="10" height="6" rx="2" fill="#0d9488"/>
+      <!-- ตัวถังวาล์ว -->
+      <rect x="9" y="5" width="26" height="20" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
+      <!-- แกนลิ้น (hinge line) -->
+      <line x1="20" y1="6" x2="20" y2="24" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round"/>
+      <!-- แผ่นลิ้น (disc) — สามเหลี่ยม ชี้ทางขวา = อนุญาต -->
+      <polygon points="20,8 33,15 20,22" fill="#0d9488" opacity="0.9"/>
+      <!-- ลูกศรทิศทางน้ำ (เคลื่อนไหว) -->
+      <g class="${arrowAni}">
+        <polygon points="35,13 41,15 35,17" fill="#14b8a6"/>
+        <line x1="33" y1="15" x2="39" y2="15" stroke="#14b8a6" stroke-width="1.5" stroke-linecap="round"/>
+      </g>
+      <!-- X กั้นย้อน (ด้านซ้าย) -->
+      <line x1="11" y1="10" x2="17" y2="20" stroke="#ef4444" stroke-width="2" stroke-linecap="round" class="cv-cross"/>
+      <line x1="17" y1="10" x2="11" y2="20" stroke="#ef4444" stroke-width="2" stroke-linecap="round" class="cv-cross"/>
+    </svg>`;
+  }
+};
+
+// ============================================================
+//  STATE
+// ============================================================
+let map, mode='select', nodes=[], links=[], startNodeId=null;
+let mapItems={m:{},p:{}};
+let showRes=true, selId=null, isCalculated=false;
+let userLocMarker=null;
+let ctxPipeId=null, ctxLatLng=null;
+
+const PIPE_SIZES=[15,20,25,32,40,50,65,80,100,150,200,250,300,350,400,450,500,600,700];
+const MATERIALS=[
+  {id:'pvc',name:'PVC / PE (พลาสติก)',c:150,desc:'ท่อผิวเรียบ แรงเสียดทานต่ำมาก'},
+  {id:'steel',name:'Steel (ท่อเหล็กใหม่)',c:130,desc:'ท่อเหล็กเหนียวใหม่'},
+  {id:'di',name:'Ductile Iron (เหล็กหล่อ)',c:120,desc:'ท่อเหล็กหล่อเหนียวบุซีเมนต์'},
+  {id:'concrete',name:'Concrete (คอนกรีต)',c:110,desc:'ท่อซีเมนต์หรือคอนกรีต'},
+  {id:'galv',name:'Galvanized (อาบสังกะสี)',c:100,desc:'ท่อเหล็กอาบสังกะสี (ผ่านการใช้งาน)'}
+];
+
+document.addEventListener('DOMContentLoaded',()=>{ initMap(); refreshPjList(); setTimeout(checkUrlHash,200); });
+function log(t){ const el=document.getElementById('st-msg'); if(el) el.innerText='⚡ '+t.toUpperCase(); }
+
+function initMap(){
+  map=L.map('map',{zoomControl:false,attributionControl:false,doubleClickZoom:false}).setView([14.4069,102.8686],15);
+  // ใช้ tile providers หลายตัวเรียงลำดับ fallback — ทำงานได้แม้เปิดจาก file://
+  const tileLayers = [
+    {
+      name: 'CartoDB Voyager',
+      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+      opts: { maxZoom:19, subdomains:'abcd',
+              attribution:'&copy; <a href="https://carto.com/">CARTO</a>' }
+    },
+    {
+      name: 'Esri World Street Map',
+      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
+      opts: { maxZoom:19,
+              attribution:'Tiles &copy; Esri' }
+    },
+    {
+      name: 'CartoDB Light',
+      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
+      opts: { maxZoom:19, subdomains:'abcd',
+              attribution:'&copy; <a href="https://carto.com/">CARTO</a>' }
+    }
+  ];
+
+  // เลือก provider แรก แล้ว fallback อัตโนมัติถ้าโหลดไม่ได้
+  let currentTileIdx = 0;
+  function addTileLayer(idx) {
+    if(idx >= tileLayers.length) return;
+    const t = tileLayers[idx];
+    const layer = L.tileLayer(t.url, t.opts);
+    layer.on('tileerror', () => {
+      if(currentTileIdx === idx) {          // ยังไม่ได้ fallback ไปแล้ว
+        currentTileIdx = idx + 1;
+        map.removeLayer(layer);
+        addTileLayer(currentTileIdx);
+      }
+    });
+    layer.addTo(map);
+  }
+  addTileLayer(0);
+  map.on('click',(e)=>{ document.getElementById('pipe-ctx-menu').classList.add('hidden'); onMapClick(e); });
+  log("System Ready");
+}
+function forceMapFix(){ if(map) map.invalidateSize(); }
+function setMode(m){
+  mode=m; startNodeId=null;
+  document.querySelectorAll('.tool-card').forEach(el=>el.classList.remove('active'));
+  const t=document.getElementById('t-'+m); if(t) t.classList.add('active');
+  closeProp();
+}
+function toggleDrawer(){ document.getElementById('drawer').classList.toggle('open'); setTimeout(forceMapFix,400); }
+
+async function onMapClick(e){
+  if(mode==='select'){ closeProp(); return; }
+  if(['junction','tank','reservoir','pump'].includes(mode)){
+    log("Fetching Elevation...");
+    let el=100;
+    try{
+      const r=await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${e.latlng.lat}&longitude=${e.latlng.lng}`);
+      const d=await r.json();
+      if(d.elevation&&d.elevation[0]!==null) el=d.elevation[0];
+    }catch(err){}
+    const id=mode[0].toUpperCase()+Date.now().toString().slice(-4);
+    nodes.push({id,type:mode,lat:e.latlng.lat,lng:e.latlng.lng,el,dem:0,head:0,p:0,status:'OPEN',setting:15.0,waterLevel:20,pumpHead:30,pumpFlow:100,prvSize:100,openPercent:100,cvFlowAngle:0,cvBlocked:false});
+    render(); log("Ready");
+  }
+}
+
+// ============================================================
+//  CHECK VALVE: คำนวณมุมหมุนและสถานะ blocked
+// ============================================================
+function computeCheckValveAngles(){
+  if(!isCalculated) return;
+  nodes.filter(n=>n.type==='check_valve').forEach(cv=>{
+    const adjLinks=links.filter(l=>l.s===cv.id||l.e===cv.id);
+    if(adjLinks.length===0){ cv.cvFlowAngle=0; cv.cvBlocked=false; return; }
+
+    // หา link ที่มี |flow| มากที่สุด เพื่อพิจารณาทิศทาง
+    const dominant=adjLinks.reduce((a,b)=>Math.abs(a.flow||0)>Math.abs(b.flow||0)?a:b);
+    const netFlow=dominant.flow||0;
+
+    // ฝั่ง upstream ของ check_valve = node ที่อยู่ก่อน cv ในทิศทางไหลปกติ
+    // ถ้า flow>0 แสดงว่าน้ำไหล s→e → upstream=s, downstream=e
+    const upstreamId=(dominant.s===cv.id)?dominant.e:dominant.s; // node ด้านที่น้ำมา
+    const downstreamId=(dominant.s===cv.id)?dominant.s:dominant.e;
+
+    // ทิศทางน้ำ "ปกติ" (ที่วาล์วอนุญาต) = จาก upstream ออก downstream
+    const upNode=nodes.find(x=>x.id===upstreamId);
+    const dnNode=nodes.find(x=>x.id===downstreamId);
+
+    let angleDeg=0;
+    if(upNode&&dnNode){
+      const dx=dnNode.lng-upNode.lng;
+      const dy=dnNode.lat-upNode.lat;
+      // แผนที่: lat บนจอคือ "บน" แต่ lat ค่าเพิ่มขึ้นทางเหนือ ต้องกลับ dy
+      angleDeg=Math.atan2(-dy,dx)*(180/Math.PI);
+    }
+
+    // blocked = น้ำกำลังพยายามไหลย้อน (flow ทิศตรงข้ามกับ "อนุญาต")
+    // คำนวณจาก sign ของ flow ในท่อระหว่าง upstream→cv
+    const inboundLink=links.find(l=>(l.s===upstreamId&&l.e===cv.id)||(l.e===upstreamId&&l.s===cv.id));
+    let blocked=false;
+    if(inboundLink){
+      const flowSign=(inboundLink.s===upstreamId)?1:-1; // flow บวก = ไหลจาก s→e
+      const actualDir=(inboundLink.flow||0)*flowSign;
+      blocked=actualDir<-0.001; // น้ำพยายามไหลย้อนกลับเข้า upstream
+    }
+
+    cv.cvFlowAngle=angleDeg;
+    cv.cvBlocked=blocked;
+  });
+}
+
+// ============================================================
+//  RENDER
+// ============================================================
+function getNodeIcon(n){
+  let dotColor=n.dem>0?'#dc2626':'#3b82f6';
+  let isLowP=false;
+  let p_bar=0;
+  if(isCalculated&&!['reservoir','tank'].includes(n.type)){
+    p_bar=(n.p||0)/10.197;
+    if(p_bar<=0.5){dotColor='#ef4444';isLowP=true;}
+    else if(p_bar<1.0) dotColor='#f97316';
+    else dotColor='#22c55e';
+  }
+  if(n.type==='tank') return `<div class="node-svg-wrap">${SVG.tank}</div>`;
+  if(n.type==='reservoir') return `<div class="node-svg-wrap">${SVG.reservoir}</div>`;
+  if(n.type==='pump') return `<div class="node-svg-wrap">${SVG.pump}</div>`;
+  if(n.type==='prv') return `<div class="node-svg-wrap">${SVG.prv}</div>`;
+  if(n.type==='air_valve') return `<div class="node-svg-wrap">${SVG.air_valve}</div>`;
+  if(n.type==='hydrant') return `<div class="node-svg-wrap">${SVG.hydrant}</div>`;
+  if(n.type==='check_valve'){
+    const angle=n.cvFlowAngle||0;
+    const blocked=n.cvBlocked||false;
+    return `<div class="node-svg-wrap" style="overflow:visible;">${SVG.check_valve(angle,blocked)}</div>`;
+  }
+  if(n.type==='valve'){
+    const pct=n.openPercent??(n.status==='CLOSED'?0:100);
+    if(pct===0) return `<div class="node-svg-wrap">${SVG.valve_closed}</div>`;
+    if(pct<100) return `<div class="node-svg-wrap">${SVG.valve_partial}</div>`;
+    return `<div class="node-svg-wrap">${SVG.valve_open}</div>`;
+  }
+  return `<div class="${isLowP?'node-alert':''}" style="display:flex;align-items:center;justify-content:center;"><div style="width:16px;height:16px;background:${dotColor};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div></div>`;
+}
+
+function render(){
+  if(!map) return;
+  for(let k in mapItems.p){try{mapItems.p[k].unbindTooltip();map.removeLayer(mapItems.p[k]);}catch(e){}}
+  for(let k in mapItems.m){try{mapItems.m[k].unbindTooltip();map.removeLayer(mapItems.m[k]);}catch(e){}}
+  mapItems={m:{},p:{}};
+
+  links.forEach(l=>{
+    const n1=nodes.find(n=>n.id===l.s),n2=nodes.find(n=>n.id===l.e);
+    if(!n1||!n2) return;
+    let pipeColor='#94a3b8';
+    if(isCalculated){const v=Math.abs(l.vel||0);if(Math.abs(l.flow)>0.0001){if(v<0.6)pipeColor='#60a5fa';else if(v<1.5)pipeColor='#22c55e';else if(v<2.5)pipeColor='#f59e0b';else pipeColor='#ef4444';}}
+    const weight=(Math.abs(l.flow)>0.0001&&isCalculated)?6:4;
+    const poly=L.polyline([[n1.lat,n1.lng],[n2.lat,n2.lng]],{color:pipeColor,weight,opacity:0.85}).addTo(map);
+    let tip=`<div style="text-align:left;"><b>🔵 Dia:</b> ${l.dia} mm<br>`;
+    if(isCalculated){
+      const ft=l.flow<0?'<span style="color:#ef4444;font-size:9px;">(ไหลย้อน)</span>':'';
+      tip+=`<span style="color:#2563eb;"><b>💧 Q:</b> ${Math.abs(l.flow||0).toFixed(2)} m³/h ${ft}</span><br>`;
+      tip+=`<span style="color:#9333ea;"><b>⚡ V:</b> ${Math.abs(l.vel||0).toFixed(2)} m/s</span><br>`;
+      tip+=`<span style="color:#ef4444;"><b>📉 HL:</b> ${(l.hl||0).toFixed(3)} m</span>`;
+    }
+    tip+=`</div>`;
+    poly.bindTooltip(tip,{permanent:showRes,direction:'center',className:'custom-eng-tooltip'});
+    poly.on('click',(e)=>{
+      L.DomEvent.stopPropagation(e);
+      ctxPipeId=l.id; ctxLatLng=e.latlng;
+      const menu=document.getElementById('pipe-ctx-menu');
+      menu.style.left=e.originalEvent.pageX+'px';
+      menu.style.top=e.originalEvent.pageY+'px';
+      menu.classList.remove('hidden');
+    });
+    mapItems.p[l.id]=poly;
+  });
+
+  // คำนวณมุม check_valve ก่อน render markers
+  computeCheckValveAngles();
+
+  nodes.forEach(n=>{
+    const iconHtml=getNodeIcon(n);
+    const isSz=n.type==='tank'?[40,44]:n.type==='reservoir'?[40,36]:n.type==='pump'?[40,40]:n.type==='hydrant'?[32,38]:n.type==='air_valve'?[32,36]:n.type==='check_valve'?[46,32]:[30,30];
+    const m=L.marker([n.lat,n.lng],{icon:L.divIcon({className:'',html:iconHtml,iconSize:isSz,iconAnchor:[isSz[0]/2,isSz[1]/2]})}).addTo(map);
+
+    let p_bar=0;
+    if(isCalculated&&!['reservoir','tank'].includes(n.type)) p_bar=(n.p||0)/10.197;
+    let nc='';
+    if(n.type==='valve'){
+      const pct=n.openPercent??(n.status==='CLOSED'?0:100);
+      const vc=pct===0?'#ef4444':pct<100?'#ea580c':'#22c55e';
+      nc+=`<span style="color:${vc};"><b>🚰 Valve:</b> ${pct===0?'ปิดสนิท':pct===100?'เปิดเต็มที่':pct+'% (หรี่)'}</span><br>`;
+    } else if(n.type==='prv'){
+      nc+=`<span style="color:#f97316;"><b>⬇️ PRV Set:</b> ${n.setting} m</span><br>`;
+    } else if(n.type==='check_valve'){
+      const st=n.cvBlocked?'<span style="color:#ef4444;font-weight:900;">⛔ ถูกกัน (Backflow!)</span>':'<span style="color:#0d9488;">✅ ไหลปกติ</span>';
+      nc+=`<span style="color:#0d9488;font-weight:900;">↪ Check Valve</span><br>`;
+      nc+=`<span style="color:#475569;"><b>สถานะ:</b> ${st}</span><br>`;
+      if(isCalculated&&n.cvFlowAngle!==undefined){
+        nc+=`<span style="color:#0d9488;"><b>🧭 ทิศน้ำ:</b> ${(n.cvFlowAngle||0).toFixed(0)}°</span><br>`;
+      }
+    } else if(n.type==='pump'){
+      nc+=`<span style="color:#ef4444;"><b>⚡ Pump:</b> ${n.pumpHead||30} m head</span><br>`;
+    } else if(n.type==='tank'){
+      nc+=`<span style="color:#7c3aed;"><b>🏗 Level:</b> ${n.waterLevel||20} m</span><br>`;
+    } else if(n.type==='reservoir'){
+      nc+=`<span style="color:#0891b2;"><b>💧 Level:</b> ${n.waterLevel||20} m</span><br>`;
+    }
+    if(n.dem&&n.dem>0) nc+=`<span style="color:#dc2626;"><b>🔴 Demand:</b> ${n.dem.toFixed(2)} m³/h</span><br>`;
+    nc+=`<span style="color:#475569;"><b>⛰ Elev:</b> ${n.el.toFixed(2)} m</span><br>`;
+    if(isCalculated&&!['valve','air_valve','check_valve'].includes(n.type)){
+      nc+=`<span style="color:#ea580c;"><b>🟡 Press:</b> ${p_bar.toFixed(2)} bar</span><br>`;
+      nc+=`<span style="color:#059669;"><b>📊 Head:</b> ${(n.head||0).toFixed(2)} m</span><br>`;
+    }
+    if(nc.endsWith('<br>')) nc=nc.slice(0,-4);
+    if(nc) m.bindTooltip(`<div style="text-align:left;">${nc}</div>`,{permanent:showRes,direction:'right',className:'custom-eng-tooltip'});
+    m.on('click',(e)=>{
+      L.DomEvent.stopPropagation(e);
+      document.getElementById('pipe-ctx-menu').classList.add('hidden');
+      if(mode==='pipe') handlePipe(n.id); else openProp(n.id,'node');
+    });
+    mapItems.m[n.id]=m;
+  });
+}
+
+function openPipeProps(){ document.getElementById('pipe-ctx-menu').classList.add('hidden'); if(ctxPipeId) openProp(ctxPipeId,'link'); }
+
+function insertAcc(type){
+  document.getElementById('pipe-ctx-menu').classList.add('hidden');
+  if(!ctxPipeId||!ctxLatLng) return;
+  const pipe=links.find(p=>p.id===ctxPipeId); if(!pipe) return;
+  const prefixMap={valve:'V',prv:'PRV',air_valve:'AV',hydrant:'HYD',check_valve:'CV'};
+  const nId=(prefixMap[type]||'X')+Date.now().toString().slice(-4);
+  const sNode=nodes.find(n=>n.id===pipe.s);
+  nodes.push({id:nId,type,lat:ctxLatLng.lat,lng:ctxLatLng.lng,el:sNode?sNode.el:10,dem:type==='hydrant'?10:0,head:0,p:0,status:'OPEN',setting:15.0,prvSize:pipe.dia||100,openPercent:100,waterLevel:10,pumpHead:30,pumpFlow:100,cvFlowAngle:0,cvBlocked:false});
+  const half=Math.max(pipe.len/2,0.1);
+  const p1={id:'L'+Date.now().toString().slice(-4)+'A',s:pipe.s,e:nId,len:half,dia:pipe.dia,mat:pipe.mat,c:pipe.c,flow:0,vel:0,hl:0};
+  const p2={id:'L'+(Date.now()+1).toString().slice(-4)+'B',s:nId,e:pipe.e,len:half,dia:pipe.dia,mat:pipe.mat,c:pipe.c,flow:0,vel:0,hl:0};
+  links=links.filter(p=>p.id!==ctxPipeId); links.push(p1,p2);
+  ctxPipeId=null; ctxLatLng=null; isCalculated=false; render();
+}
+
+// ============================================================
+//  PROPERTIES PANEL
+// ============================================================
+const TYPE_ICONS={
+  junction:`<svg width="20" height="20" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8" fill="#3b82f6"/><circle cx="12" cy="12" r="3" fill="white"/></svg>`,
+  tank:`<svg width="20" height="22" viewBox="0 0 26 28"><line x1="7" y1="22" x2="5" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="22" x2="21" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><ellipse cx="13" cy="8" rx="9" ry="3" fill="#c4b5fd"/><rect x="4" y="8" width="18" height="14" fill="#8b5cf6"/><ellipse cx="13" cy="22" rx="9" ry="3" fill="#7c3aed"/></svg>`,
+  reservoir:`<svg width="20" height="20" viewBox="0 0 26 26"><rect x="2" y="12" width="22" height="12" rx="2" fill="#0891b2"/><rect x="1" y="8" width="24" height="5" rx="1" fill="#0c4a6e"/></svg>`,
+  pump:`<svg width="20" height="20" viewBox="0 0 26 26"><circle cx="13" cy="13" r="9" fill="#ef4444"/><path d="M13 13 L13 6 Q17 9 13 13Z" fill="white" opacity="0.9"/></svg>`,
+  valve:`<svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="10" width="20" height="4" rx="2" fill="#22c55e"/><path d="M8 10 L12 4 L16 10Z" fill="#22c55e"/><circle cx="12" cy="12" r="2" fill="white"/></svg>`,
+  prv:`<svg width="20" height="20" viewBox="0 0 24 24"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text></svg>`,
+  air_valve:`<svg width="18" height="20" viewBox="0 0 24 26"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2"/></svg>`,
+  hydrant:`<svg width="18" height="20" viewBox="0 0 24 28"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="4" rx="1" fill="#ef4444"/><path d="M10 12 V8 Q12 6 14 8 V12" fill="none" stroke="#dc2626" stroke-width="2"/></svg>`,
+  check_valve:`<svg width="26" height="18" viewBox="0 0 44 30"><rect x="0" y="12" width="10" height="6" rx="2" fill="#0d9488"/><rect x="34" y="12" width="10" height="6" rx="2" fill="#0d9488"/><rect x="9" y="5" width="26" height="20" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/><line x1="20" y1="6" x2="20" y2="24" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round"/><polygon points="20,8 33,15 20,22" fill="#0d9488"/><polygon points="35,13 41,15 35,17" fill="#14b8a6"/><line x1="11" y1="10" x2="17" y2="20" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/><line x1="17" y1="10" x2="11" y2="20" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/></svg>`,
+  pipe:`<i class="fas fa-minus" style="color:#64748b;font-size:16px;"></i>`
+};
+const TYPE_NAMES={junction:'จุดต่อ (Junction)',tank:'ถังสูง (Tank)',reservoir:'แหล่งน้ำ (Reservoir)',pump:'ปั๊มน้ำ (Pump)',valve:'ประตูน้ำ (Gate Valve)',prv:'PRV (ลดแรงดัน)',air_valve:'แอร์วาล์ว',hydrant:'หัวดับเพลิง',check_valve:'เช็ควาล์ว (Check Valve)',pipe:'ท่อน้ำ (Pipe)'};
+
+function updateMaterialInfo(){
+  const c=document.getElementById('i_cvalue'),d=document.getElementById('mat_desc');
+  if(c&&d){const v=parseFloat(c.value),mm=MATERIALS.find(m=>m.c===v);d.innerText=mm?`💡 ${mm.name} — ${mm.desc}`:`💡 กำหนดค่า C-Factor เอง (${v||0})`;}
+}
+function updatePRVInfo(){
+  const si=document.getElementById('i_prv_size'),fs=document.getElementById('prv_max_flow'),sl=document.getElementById('prv_sz_lbl');
+  if(si&&fs&&sl){const sz=parseFloat(si.value);if(!isNaN(sz)){sl.innerText=sz;fs.innerText=((Math.PI*Math.pow(sz/2000,2))*2.5*3600).toFixed(1);}}
+}
+
+function openProp(id,type){
+  selId=id;
+  const el=type==='node'?nodes.find(n=>n.id===id):links.find(l=>l.id===id);
+  if(!el) return;
+  document.getElementById('propPanel').classList.remove('hidden');
+  document.getElementById('pId').innerText='ID: '+id;
+  document.getElementById('pType').innerText=type==='node'?(TYPE_NAMES[el.type]||el.type):'ท่อน้ำ (Pipe)';
+  document.getElementById('pIcon').innerHTML=TYPE_ICONS[type==='node'?el.type:'pipe']||'';
+  const box=document.getElementById('pContent');
+  const inp=(id,lbl,val,t2='number',step='0.1')=>`<div><label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">${lbl}</label><input id="${id}" type="${t2}" step="${step}" value="${val}" class="eng-input"></div>`;
+  let res='';
+  if(isCalculated){
+    if(type==='node'){const pb=(el.p||0)/10.197;res=`<div class="panel-res-box"><div class="res-item"><span class="res-label">📊 Total Head</span><span class="res-val">${(el.head||0).toFixed(2)} m</span></div><div class="res-item"><span class="res-label">🟡 Pressure</span><span class="res-val" style="color:#2563eb;">${pb.toFixed(2)} bar</span></div></div>`;}
+    else{res=`<div class="panel-res-box"><div class="res-item"><span class="res-label">💧 Flow Rate</span><span class="res-val" style="color:#2563eb;">${Math.abs(el.flow||0).toFixed(2)} m³/h</span></div><div class="res-item"><span class="res-label">⚡ Velocity</span><span class="res-val" style="color:#9333ea;">${Math.abs(el.vel||0).toFixed(2)} m/s</span></div><div class="res-item"><span class="res-label">📉 Headloss</span><span class="res-val" style="color:#ef4444;">${(el.hl||0).toFixed(2)} m</span></div></div>`;}
+  }
+  let h=res;
+  if(type==='node'){
+    h+=inp('i_el','⛰ Elevation / ระดับดิน MSL (m)',el.el.toFixed(1));
+    if(el.type==='check_valve'){
+      // ---- CHECK VALVE PANEL ----
+      h+=`<div style="background:#f0fdfa;border:2px solid #99f6e4;border-radius:16px;padding:16px;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+          ${TYPE_ICONS.check_valve}
+          <div>
+            <div style="font-size:12px;font-weight:900;color:#0f766e;">เช็ควาล์ว (Check Valve)</div>
+            <div style="font-size:10px;color:#0d9488;">ป้องกันน้ำไหลย้อนกลับ</div>
+          </div>
+        </div>
+        <div style="background:white;border-radius:12px;padding:12px;border:1px solid #99f6e4;font-size:11px;color:#134e4a;line-height:1.7;">
+          <b>หลักการทำงาน:</b><br>
+          • ลิ้นกั้น (Disc) เปิดเมื่อน้ำดันจากด้านเข้า (Inlet) สู่ด้านออก (Outlet)<br>
+          • เมื่อแรงดันย้อน → ลิ้นปิดสนิทโดยอัตโนมัติ<br>
+          • <b>ไม่มี Headloss</b> เมื่อไหลปกติ (นิ่ม) / มี Headloss สูงมากเมื่อกั้น<br>
+          • ลูกศร <span style="color:#14b8a6;">▶</span> บนแผนที่ = ทิศทางอนุญาต | <span style="color:#ef4444;">✕</span> = กั้นย้อน
+        </div>
+        ${isCalculated?`<div style="margin-top:10px;padding:10px;background:${el.cvBlocked?'#fef2f2':'#f0fdfa'};border-radius:10px;border:1px solid ${el.cvBlocked?'#fca5a5':'#6ee7b7'};">
+          <div style="font-size:12px;font-weight:900;color:${el.cvBlocked?'#dc2626':'#0d9488'};">${el.cvBlocked?'⛔ กำลังกั้นน้ำย้อน!':'✅ น้ำไหลปกติ'}</div>
+          <div style="font-size:10px;color:#64748b;margin-top:3px;">ทิศทางน้ำ: ${(el.cvFlowAngle||0).toFixed(1)}°</div>
+        </div>`:''}
+      </div>`;
+    } else if(el.type==='valve'){
+      const cp=el.openPercent??(el.status==='CLOSED'?0:100);
+      const opts=[0,10,20,30,40,50,60,70,80,90,100].map(v=>`<option value="${v}" ${cp==v?'selected':''}>${v}% ${v===0?'— ปิดสนิท':v===100?'— เปิดเต็มที่':''}</option>`).join('');
+      h+=`<div><label style="font-size:10px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">🚰 การเปิด-ปิดวาล์ว (%)</label><select id="i_valve_open" class="eng-input" style="border-color:#bfdbfe;background:#eff6ff;">${opts}</select><p style="font-size:9px;color:#64748b;margin-top:6px;">💡 ลด% → Headloss เพิ่มแบบทวีคูณ</p></div>`;
+    } else if(el.type==='prv'){
+      const cps=el.prvSize||100;
+      const pso=PIPE_SIZES.filter(s=>s>=40&&s<=600).map(s=>`<option value="${s}" ${cps==s?'selected':''}>${s} mm</option>`).join('');
+      const imf=((Math.PI*Math.pow(cps/2000,2))*2.5*3600).toFixed(1);
+      h+=`<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:14px;padding:14px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;"><div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;">⬇️ Target Pressure (m)</label><input id="i_set" type="number" step="0.1" value="${el.setting||15}" class="eng-input" style="border-color:#fed7aa;background:white;"></div><div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;">🔧 PRV Size</label><select id="i_prv_size" class="eng-input" style="border-color:#fed7aa;background:white;" onchange="updatePRVInfo()">${pso}</select></div></div><p style="font-size:10px;color:#78350f;">💡 ขนาด <b id="prv_sz_lbl">${cps}</b> mm → Flow สูงสุด ~<b id="prv_max_flow">${imf}</b> m³/h</p></div>`;
+    } else if(el.type==='pump'){
+      h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('i_pump_head','⚡ Pump Head (m)',el.pumpHead||30)}${inp('i_pump_flow','💧 Design Flow (m³/h)',el.pumpFlow||100,'number','1')}</div>`;
+    } else if(['reservoir','tank'].includes(el.type)){
+      h+=inp('i_wl','💧 Water Level (m)',el.waterLevel||20);
+    } else if(!['valve','prv','air_valve','hydrant','check_valve'].includes(el.type)){
+      h+=inp('i_dem','🔴 Base Demand (m³/h)',el.dem||0);
+    }
+  } else {
+    const so=PIPE_SIZES.map(s=>`<option value="${s}" ${el.dia==s?'selected':''}>${s} mm</option>`).join('');
+    const co=MATERIALS.map(m=>`<option value="${m.c}">${m.name} (C=${m.c})</option>`).join('');
+    const cc=el.c||150; const mm=MATERIALS.find(m=>m.c===cc);
+    h+=`<div><label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">🔵 ขนาดท่อ (Diameter)</label><select id="i_dia" class="eng-input" style="background:white;">${so}</select></div>
+    <div><label style="font-size:10px;font-weight:800;color:#2563eb;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">🧪 C-Factor (วัสดุท่อ)</label><input id="i_cvalue" type="number" list="cvalue-list" class="eng-input" style="background:#eff6ff;border-color:#bfdbfe;" value="${cc}" oninput="updateMaterialInfo()"><datalist id="cvalue-list">${co}</datalist><p id="mat_desc" style="font-size:10px;color:#2563eb;margin-top:6px;font-weight:700;">💡 ${mm?mm.name+' — '+mm.desc:'กำหนดเอง ('+cc+')'}</p></div>
+    <div><label style="font-size:10px;font-weight:800;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;display:block;margin-bottom:6px;">📏 ความยาว (Length m)</label><input id="i_len" type="number" value="${Math.round(el.len)}" class="eng-input"></div>`;
+  }
+  box.innerHTML=h;
+}
+
+async function saveProp(){
+  const isN=nodes.some(n=>n.id===selId);
+  const el=isN?nodes.find(n=>n.id===selId):links.find(l=>l.id===selId);
+  if(!el) return;
+  if(isN){
+    const v=(id)=>{const e=document.getElementById(id);return e?e.value:null;};
+    if(v('i_el')!==null) el.el=parseFloat(v('i_el'))||0;
+    if(v('i_set')!==null) el.setting=parseFloat(v('i_set'))||15;
+    if(v('i_prv_size')!==null) el.prvSize=parseFloat(v('i_prv_size'))||100;
+    if(v('i_valve_open')!==null){el.openPercent=parseInt(v('i_valve_open'));el.status=el.openPercent===0?'CLOSED':'OPEN';}
+    if(v('i_wl')!==null) el.waterLevel=parseFloat(v('i_wl'))||0;
+    if(v('i_dem')!==null) el.dem=parseFloat(v('i_dem'))||0;
+    if(v('i_pump_head')!==null) el.pumpHead=parseFloat(v('i_pump_head'))||30;
+    if(v('i_pump_flow')!==null) el.pumpFlow=parseFloat(v('i_pump_flow'))||100;
+  } else {
+    const d=document.getElementById('i_dia'),l=document.getElementById('i_len'),c=document.getElementById('i_cvalue');
+    if(d) el.dia=parseFloat(d.value)||100;
+    if(l) el.len=parseFloat(l.value)||1;
+    if(c) el.c=parseFloat(c.value)||150;
+  }
+  closeProp(); await calculate(); render();
+}
+function closeProp(){ document.getElementById('propPanel').classList.add('hidden'); selId=null; }
+
+async function deleteEl(){
+  nodes=nodes.filter(n=>n.id!==selId);
+  links=links.filter(l=>l.id!==selId&&l.s!==selId&&l.e!==selId);
+  closeProp();
+  const src=nodes.filter(n=>['reservoir','tank','pump'].includes(n.type));
+  if(src.length>0&&links.length>0) await calculate();
+  else{isCalculated=false;render();}
+}
+
+function handlePipe(id){
+  if(!startNodeId){startNodeId=id;log("เลือกปลายทาง...");}
+  else{
+    if(startNodeId!==id){
+      const n1=nodes.find(n=>n.id===startNodeId),n2=nodes.find(n=>n.id===id);
+      if(n1&&n2){const d=L.latLng(n1.lat,n1.lng).distanceTo(L.latLng(n2.lat,n2.lng));links.push({id:'L'+Date.now().toString().slice(-4),s:startNodeId,e:id,len:d,dia:100,mat:'pvc',c:150,flow:0,vel:0,hl:0});render();}
+    }
+    startNodeId=null;log("Ready");
+  }
+}
+
+async function saveData(){
+  const n=document.getElementById('pjName').value; if(!n) return alert("กรุณาระบุชื่อโครงการ");
+  const src=nodes.filter(n=>['reservoir','tank','pump'].includes(n.type));
+  if(src.length>0) await calculate();
+  localStorage.setItem('pj_'+n,JSON.stringify({nodes,links}));
+  refreshPjList(); alert('✅ บันทึก "'+n+'" เรียบร้อยแล้ว'); render();
+}
+function refreshPjList(){
+  const sel=document.getElementById('pjList');
+  sel.innerHTML='<option value="">-- โหลดงานที่บันทึกไว้ --</option>';
+  for(let i=0;i<localStorage.length;i++){const k=localStorage.key(i);if(k&&k.startsWith('pj_'))sel.innerHTML+=`<option value="${k}">${k.replace('pj_','')}</option>`;}
+}
+function loadData(){
+  const k=document.getElementById('pjList').value; if(!k) return;
+  try{const d=JSON.parse(localStorage.getItem(k));if(d&&d.nodes&&d.links){nodes=d.nodes;links=d.links;calculate().then(()=>{render();log("Loaded");});}}
+  catch(e){alert("ไม่สามารถโหลดข้อมูลได้");}
+}
+function clearData(){
+  if(confirm("⚠️ ต้องการล้างหน้าจอทั้งหมดหรือไม่?")){nodes=[];links=[];isCalculated=false;document.getElementById('sysSummary').classList.remove('show');render();}
+}
+async function copyToClipboard(text){
+  try{await navigator.clipboard.writeText(text);return true;}
+  catch(e){try{const el=document.createElement('textarea');el.value=text;el.style.position='fixed';el.style.opacity='0';document.body.appendChild(el);el.select();document.execCommand('copy');document.body.removeChild(el);return true;}catch(e2){return false;}}
+}
+async function shareURL(){
+  if(nodes.length===0) return alert("ไม่มีข้อมูลที่จะแชร์");
+  if(window.shareProjectToCloud){window.shareProjectToCloud(nodes,links);return;}
+  try{
+    const enc=LZString.compressToEncodedURIComponent(JSON.stringify({nodes,links}));
+    const url=window.location.origin+window.location.pathname+'#v2='+enc;
+    const ok=await copyToClipboard(url);
+    if(ok) alert("✅ คัดลอกลิงก์เรียบร้อยแล้ว (โหมดออฟไลน์)");
+    else alert("ลิงก์: "+url);
+  }catch(e){alert("เกิดข้อผิดพลาดในการสร้างลิงก์");}
+}
+window.loadDataFromCloud=function(n,l){
+  nodes=n;links=l;
+  if(nodes.length>0&&map)map.setView([nodes[0].lat,nodes[0].lng],16);
+  calculate().then(()=>{render();log("Loaded from Share");});
+};
+function checkUrlHash(){
+  if(!window.location.hash) return;
+  try{
+    let ds;
+    if(window.location.hash.startsWith('#v2=')) ds=LZString.decompressFromEncodedURIComponent(window.location.hash.substring(4));
+    else if(window.location.hash.length>5) ds=decodeURIComponent(atob(window.location.hash.substring(1)));
+    if(ds){const data=JSON.parse(ds);if(data&&data.nodes&&data.links){nodes=data.nodes;links=data.links;if(nodes.length>0&&map)map.setView([nodes[0].lat,nodes[0].lng],16);calculate().then(()=>render());window.history.replaceState(null,null,window.location.pathname);}}
+  }catch(e){console.warn(e);}
+}
+function toggleRes(){
+  showRes=!showRes;
+  const btn=document.getElementById('btn-res'),lbl=document.getElementById('btn-res-label');
+  if(showRes){btn.classList.add('active');if(lbl)lbl.innerText='ซ่อนป้าย';}
+  else{btn.classList.remove('active');if(lbl)lbl.innerText='แสดงป้าย';}
+  render();
+}
+function locate(){
+  if(!navigator.geolocation) return alert("ไม่รองรับ GPS");
+  log("กำลังค้นหาตำแหน่ง...");
+  navigator.geolocation.getCurrentPosition(
+    pos=>{
+      const latlng=[pos.coords.latitude,pos.coords.longitude];map.setView(latlng,18);
+      if(userLocMarker){userLocMarker.setLatLng(latlng);}
+      else{const ih=`<div class="user-marker-pulse" style="width:18px;height:18px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 12px rgba(59,130,246,0.6);"></div>`;userLocMarker=L.marker(latlng,{icon:L.divIcon({className:'',html:ih,iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:1000}).addTo(map);userLocMarker.bindTooltip("📍 ตำแหน่งของคุณ",{permanent:false,direction:'top',className:'custom-eng-tooltip'});}
+      log("Ready");
+    },
+    ()=>{alert("หาตำแหน่งไม่พบ กรุณาเปิดสิทธิ์ GPS");log("Ready");}
+  );
+}
+
+// ============================================================
+//  CALCULATION ENGINE (Hazen-Williams + Check Valve enforcement)
+// ============================================================
+function calculate(){
+  log("กำลังวิเคราะห์ระบบ...");
+  isCalculated=false;
+  return new Promise(resolve=>{
+    setTimeout(()=>{
+      const sources=nodes.filter(n=>['reservoir','tank','pump'].includes(n.type));
+      if(sources.length===0){log("ไม่มี Source — ข้าม");resolve();return;}
+
+      // BFS connectivity (check_valve ถือเป็น node ปกติ ยังให้น้ำผ่านได้สองทาง ใน solver — แต่หลัง solve จะ enforce)
+      const adj={};
+      nodes.forEach(n=>adj[n.id]=[]);
+      links.forEach(l=>{
+        const n1=nodes.find(x=>x.id===l.s),n2=nodes.find(x=>x.id===l.e);
+        if(!n1||!n2) return;
+        const p1=n1.openPercent??(n1.status==='CLOSED'?0:100);
+        const p2=n2.openPercent??(n2.status==='CLOSED'?0:100);
+        if(p1>0&&p2>0){adj[l.s].push(l.e);adj[l.e].push(l.s);}
+      });
+      const conn=new Set();const q=[...sources.map(s=>s.id)];q.forEach(id=>conn.add(id));
+      let hi=0;while(hi<q.length){const c=q[hi++];(adj[c]||[]).forEach(nb=>{if(!conn.has(nb)){conn.add(nb);q.push(nb);}});}
+
+      sources.forEach(s=>{s.head=s.el+(s.type==='pump'?(s.pumpHead||50):(s.waterLevel||10));});
+      nodes.forEach(n=>{if(!['reservoir','tank','pump'].includes(n.type))n.head=conn.has(n.id)?n.el+10:n.el;});
+
+      // ---- Iterative solver ----
+      for(let iter=0;iter<1000;iter++){
+        let maxR=0;
+        nodes.forEach(n=>{
+          if(['reservoir','tank','pump'].includes(n.type)||!conn.has(n.id)) return;
+          let sQ=0,sDq=0;
+          links.filter(l=>l.s===n.id||l.e===n.id).forEach(l=>{
+            const nbId=l.s===n.id?l.e:l.s,nb=nodes.find(x=>x.id===nbId);if(!nb) return;
+            const pn=n.openPercent??(n.status==='CLOSED'?0:100);
+            const pnb=nb.openPercent??(nb.status==='CLOSED'?0:100);
+            if(pn===0||pnb===0) return;
+            const D=l.dia/1000,C=l.c||140,len=Math.max(l.len,0.1);
+            const th=Math.max(Math.min(pn,pnb)/100.0,0.01);
+            const K=(10.67*len/(Math.pow(C,1.852)*Math.pow(D,4.8704)))*Math.pow(1/th,2);
+            const dH=nb.head-n.head,sign=dH>=0?1:-1,aH=Math.abs(dH),expQ=1/1.852;
+            let Q=0,dQdH=0;
+            if(aH>1e-6){Q=sign*Math.pow(aH/K,expQ);dQdH=expQ*Math.abs(Q)/aH;}
+            sQ+=Q;sDq+=dQdH;
+          });
+          const dem=(n.dem||0)/3600,res=sQ-dem;
+          if(Math.abs(res)>maxR) maxR=Math.abs(res);
+          if(sDq>1e-10){let dh=Math.max(-10,Math.min(10,res/sDq));n.head+=dh;}
+          if(n.type==='prv'){const th=n.el+(n.setting||15);if(n.head>th)n.head=n.head*0.3+th*0.7;}
+        });
+        if(maxR<1e-6) break;
+      }
+
+      // ---- Final flow calculation ----
+      let totD=0,totS=0;
+      const jns=nodes.filter(n=>!['reservoir','tank','pump'].includes(n.type));
+      let minP=jns.length>0?Infinity:0;
+      nodes.forEach(n=>{n.p=Math.max(0,n.head-n.el);if(n.dem)totD+=n.dem;if(!['reservoir','tank','pump'].includes(n.type)&&n.p<minP)minP=n.p;});
+
+      links.forEach(l=>{
+        const n1=nodes.find(x=>x.id===l.s),n2=nodes.find(x=>x.id===l.e);
+        if(!n1||!n2){l.flow=0;l.vel=0;l.hl=0;return;}
+        const p1=n1.openPercent??(n1.status==='CLOSED'?0:100);
+        const p2=n2.openPercent??(n2.status==='CLOSED'?0:100);
+        const dH=n1.head-n2.head,aH=Math.abs(dH),fd=dH>=0?1:-1;
+        const iso=!conn.has(n1.id)||!conn.has(n2.id);
+        if(p1===0||p2===0||iso){l.flow=0;l.vel=0;l.hl=(p1===0||p2===0)?aH:0;}
+        else{
+          const D=l.dia/1000,C=l.c||140,len=Math.max(l.len,0.1);
+          const th=Math.max(Math.min(p1,p2)/100.0,0.01);
+          const K=(10.67*len/(Math.pow(C,1.852)*Math.pow(D,4.8704)))*Math.pow(1/th,2);
+          const Qm=aH>1e-6?Math.pow(aH/K,1/1.852):0;
+          l.flow=Qm*3600*fd;l.vel=Qm/(Math.PI*Math.pow(D/2,2))*fd;l.hl=aH;
+          const s1=['reservoir','tank','pump'].includes(n1.type);
+          const s2=['reservoir','tank','pump'].includes(n2.type);
+          if(s1&&!s2&&dH>0)totS+=Math.abs(l.flow);
+          if(s2&&!s1&&dH<0)totS+=Math.abs(l.flow);
         }
+      });
 
-        function forceMapFix() { if(map) map.invalidateSize(); }
+      // ---- CHECK VALVE enforcement ----
+      // หลัง solver: ถ้า flow ย้อนทิศ ให้บังคับ flow=0 + อัปเดต head downstream
+      nodes.filter(n=>n.type==='check_valve'&&conn.has(n.id)).forEach(cv=>{
+        const adjL=links.filter(l=>l.s===cv.id||l.e===cv.id);
+        adjL.forEach(l=>{
+          // กำหนด "ทิศอนุญาต": น้ำไหลเข้า cv จาก l.s เมื่อ l.e===cv.id (flow>0 = s→e ปกติ)
+          // ถ้า link นี้ขา "ออก" จาก cv: l.s===cv.id → flow ควรบวก (ออกทาง e)
+          // ถ้า link นี้ขา "เข้า" cv: l.e===cv.id → flow ควรบวก (เข้า e=cv)
+          // check valve ให้ไหลทิศเดิมที่ solver ได้ แต่ถ้าย้อน → ตัดเป็น 0
+          if(l.flow<-0.001){
+            // flow ย้อน: บังคับ 0 และบันทึกว่า blocked
+            l.flow=0; l.vel=0; l.hl=0;
+            cv.cvBlocked=true;
+          }
+        });
+      });
 
-        function setMode(m) {
-            mode = m; startNodeId = null;
-            document.querySelectorAll('.cursor-pointer').forEach(el => el.classList.remove('border-blue-500','bg-blue-50'));
-            const target = document.getElementById('t-'+m);
-            if(target) target.classList.add('border-blue-500','bg-blue-50');
-            closeProp();
-        }
+      const mp=minP===Infinity?0:minP/10.197;
+      document.getElementById('val-supply').innerText=totS.toFixed(2)+' m³/h';
+      document.getElementById('val-demand').innerText=totD.toFixed(2)+' m³/h';
+      document.getElementById('val-min-p').innerText=mp.toFixed(2)+' bar';
+      document.getElementById('sysSummary').classList.add('show');
+      isCalculated=true;render();log("วิเคราะห์เสร็จสิ้น ✓");resolve();
+    },100);
+  });
+}
+</script>
 
-        function toggleDrawer() { document.getElementById('drawer').classList.toggle('open'); setTimeout(forceMapFix, 400); }
-
-        // --- 4. การจัดการคลิกบนแผนที่ (สร้าง Node) ---
-        async function onMapClick(e) {
-            if(mode === 'select') { closeProp(); return; }
-            if(['junction','tank','reservoir','pump'].includes(mode)) {
-                log("Fetching Elevation...");
-                let el = 100;
-                try {
-                    // ดึงระดับความสูงจาก API ฟรี (ถ้ามีเน็ต)
-                    const res = await fetch(`https://api.open-meteo.com/v1/elevation?latitude=${e.latlng.lat}&longitude=${e.latlng.lng}`);
-                    const d = await res.json();
-                    if(d.elevation) el = d.elevation[0];
-                } catch(err) {}
-
-                const id = mode[0].toUpperCase() + Date.now().toString().slice(-4);
-                nodes.push({ 
-                    id, type: mode, lat: e.latlng.lat, lng: e.latlng.lng, 
-                    el, dem: 0, head: 0, p: 0, status: 'OPEN', 
-                    setting: 15.0, waterLevel: 20, pumpHead: 30, pumpFlow: 100,
-                    prvSize: 100 // Default PRV size
-                });
-                render(); log("Ready");
-            }
-        }
-
-        // --- 5. ฟังก์ชันแสดงผลบนแผนที่ (Render & UI) ---
-        function render() {
-            if(!map) return;
-            // ล้างของเก่า
-            for(let k in mapItems.m) map.removeLayer(mapItems.m[k]);
-            for(let k in mapItems.p) map.removeLayer(mapItems.p[k]);
-            
-            // วาดท่อ
-            links.forEach(l => {
-                const n1 = nodes.find(n=>n.id===l.s), n2 = nodes.find(n=>n.id===l.e);
-                if(n1 && n2) {
-                    let pipeColor = '#94a3b8'; // สีเทา (ยังไม่คำนวณ)
-                    if (isCalculated) {
-                        const vel = Math.abs(l.vel || 0); // ใช้ค่าสมบูรณ์ในการเทียบสี
-                        if (Math.abs(l.flow) > 0.0001) {
-                            if (vel < 0.6) pipeColor = '#60a5fa';      // ฟ้า (ช้า)
-                            else if (vel < 1.5) pipeColor = '#22c55e'; // เขียว (ดีมาก)
-                            else if (vel < 2.5) pipeColor = '#f59e0b'; // ส้ม (เร็วไป)
-                            else pipeColor = '#ef4444';                // แดง (อันตราย)
-                        }
-                    }
-                    let weight = (Math.abs(l.flow) > 0.0001 && isCalculated) ? 6 : 4;
-                    const poly = L.polyline([[n1.lat,n1.lng],[n2.lat,n2.lng]], { color: pipeColor, weight, opacity: 0.8 }).addTo(map);
-                    
-                    // Tooltip สำหรับเส้นท่อ
-                    let tooltipHtml = `<div style="text-align:left;">`;
-                    tooltipHtml += `<b><i class="fas fa-ruler-horizontal text-slate-400"></i> Dia:</b> ${l.dia} mm<br>`;
-                    if (isCalculated) {
-                        // แสดงสถานะการไหลย้อน (Reverse Flow) ตามหลักฟิสิกส์
-                        const flowText = l.flow < 0 ? '<span style="color:#ef4444;font-size:9px;">(ไหลย้อน)</span>' : '';
-                        tooltipHtml += `<span style="color:#2563eb;"><b><i class="fas fa-water"></i> Q:</b> ${Math.abs(l.flow || 0).toFixed(2)} m³/h ${flowText}</span><br>`;
-                        tooltipHtml += `<span style="color:#9333ea;"><b><i class="fas fa-tachometer-alt"></i> V:</b> ${Math.abs(l.vel || 0).toFixed(2)} m/s</span><br>`;
-                        tooltipHtml += `<span style="color:#ef4444;"><b><i class="fas fa-arrow-down"></i> HL:</b> ${(l.hl || 0).toFixed(3)} m</span>`;
-                    }
-                    tooltipHtml += `</div>`;
-                    
-                    // ปรับให้ป้ายข้อมูลท่อแสดงเมื่อจิ้มหรือชี้ แม้จะปิดการมองเห็นภาพรวม (showRes = false)
-                    poly.bindTooltip(tooltipHtml, { permanent: showRes, direction: 'center', className: 'custom-eng-tooltip' });
-
-                    // เมื่อคลิกที่เส้นท่อ จะเปิด Context Menu ขึ้นมา
-                    poly.on('click', (e) => {
-                        L.DomEvent.stopPropagation(e);
-                        ctxPipeId = l.id;
-                        ctxLatLng = e.latlng;
-                        const menu = document.getElementById('pipe-ctx-menu');
-                        menu.style.left = e.originalEvent.pageX + 'px';
-                        menu.style.top = e.originalEvent.pageY + 'px';
-                        menu.classList.remove('hidden');
-                    });
-
-                    mapItems.p[l.id] = poly;
-                }
-            });
-
-            // วาด Node
-            nodes.forEach(n => {
-                let iconHtml = '';
-                let dotColor = n.dem > 0 ? '#dc2626' : '#3b82f6';
-                const isClosed = n.status === 'CLOSED';
-                let isLowPressure = false;
-                let p_bar = 0;
-
-                // เช็คแรงดัน (แปลงค่า Head เป็น Bar: 1 bar ≈ 10.197 mH2O)
-                if (isCalculated && !['reservoir','tank'].includes(n.type)) {
-                    p_bar = (n.p || 0) / 10.197;
-                    if (p_bar <= 0) { dotColor = '#ef4444'; isLowPressure = true; }
-                    else if (p_bar < 0.5) { dotColor = '#ef4444'; isLowPressure = true; } // ต่ำกว่า 0.5 bar ให้กระพริบเตือนสีแดง
-                    else if (p_bar < 1.0) { dotColor = '#f97316'; } // ต่ำกว่า 1.0 bar เตือนสีส้ม
-                    else { dotColor = '#22c55e'; }              
-                }
-
-                // เลือก Icon
-                if(['tank','reservoir','pump'].includes(n.type)) {
-                    const icon = n.type==='tank' ? 'fa-database text-purple-600' : (n.type==='reservoir' ? 'fa-water text-cyan-500' : 'fa-fan text-orange-500');
-                    iconHtml = `<i class="fas ${icon} text-xl drop-shadow-md bg-white rounded-full p-1 border"></i>`;
-                } else if(['valve','prv', 'air_valve', 'hydrant'].includes(n.type)) {
-                    let icon = ''; let color = '';
-                    if(n.type==='valve') { 
-                        icon = 'fa-faucet'; 
-                        let pct = n.openPercent !== undefined ? n.openPercent : (n.status === 'CLOSED' ? 0 : 100);
-                        if (pct === 0) color = '#ef4444'; // แดง (ปิดสนิท)
-                        else if (pct < 100) color = '#f59e0b'; // ส้ม (หรี่วาล์ว)
-                        else color = '#22c55e'; // เขียว (เปิดเต็มที่)
-                    }
-                    else if(n.type==='prv') { icon = 'fa-compress-arrows-alt'; color = '#f97316'; }
-                    else if(n.type==='air_valve') { icon = 'fa-wind'; color = '#06b6d4'; }
-                    else if(n.type==='hydrant') { icon = 'fa-fire-extinguisher'; color = '#ef4444'; }
-                    iconHtml = `<div class="node-marker"><i class="fas ${icon} text-xl drop-shadow-md" style="color:${color}"></i></div>`;
-                } else {
-                    iconHtml = `<div class="node-marker ${isLowPressure ? 'node-alert' : ''}"><div style="width:14px;height:14px;background:${dotColor};border:2px solid white;border-radius:50%;box-shadow:0 2px 4px rgba(0,0,0,0.3)"></div></div>`;
-                }
-
-                const m = L.marker([n.lat, n.lng], { icon: L.divIcon({className:'flex justify-center items-center', html: iconHtml, iconSize:[30,30]}) }).addTo(map);
-                
-                // Tooltip สำหรับ Node (แสดงเฉพาะ Elev, Press, Head และ Demand ถ้ามี)
-                let nodeContent = '';
-                
-                if (n.type === 'valve') {
-                    let pct = n.openPercent !== undefined ? n.openPercent : (n.status === 'CLOSED' ? 0 : 100);
-                    let vColor = pct === 0 ? '#ef4444' : (pct < 100 ? '#ea580c' : '#22c55e');
-                    nodeContent += `<span style="color:${vColor};"><b>Valve Open:</b> ${pct}%</span><br>`;
-                } else if (n.type === 'prv') {
-                    nodeContent += `<span style="color:#f97316;"><b>PRV Set:</b> ${n.setting} m</span><br>`;
-                }
-                
-                // แสดงค่า Demand เฉพาะจุดที่มีการตั้งค่าปริมาณใช้น้ำมากกว่า 0
-                if (n.dem && n.dem > 0) {
-                    nodeContent += `<span style="color:#dc2626;"><b><i class="fas fa-hand-holding-water"></i> Dem:</b> ${n.dem.toFixed(2)} m³/h</span><br>`;
-                }
-                
-                nodeContent += `<span style="color:#475569;"><b><i class="fas fa-mountain text-slate-400"></i> Elev:</b> ${n.el.toFixed(2)} m</span><br>`;
-                
-                if (isCalculated && !['valve','air_valve'].includes(n.type)) {
-                    nodeContent += `<span style="color:#ea580c;"><b><i class="fas fa-compress text-orange-500"></i> Press:</b> ${p_bar.toFixed(2)} bar</span><br>`;
-                    nodeContent += `<span style="color:#059669;"><b><i class="fas fa-layer-group text-emerald-500"></i> Head:</b> ${(n.head || 0).toFixed(2)} m</span><br>`;
-                }
-                
-                // ตัด <br> ตัวท้ายสุดออกเพื่อความสวยงาม
-                if (nodeContent.endsWith('<br>')) {
-                    nodeContent = nodeContent.slice(0, -4);
-                }
-                
-                // ปรับให้ป้ายข้อมูลโหนดแสดงเมื่อจิ้มหรือชี้ แม้จะปิดการมองเห็นภาพรวม (showRes = false)
-                if (nodeContent !== '') {
-                    let nodeHtml = `<div style="text-align:left;">${nodeContent}</div>`;
-                    m.bindTooltip(nodeHtml, { permanent: showRes, direction: 'right', className: 'custom-eng-tooltip' });
-                }
-
-                m.on('click', (e) => {
-                    L.DomEvent.stopPropagation(e);
-                    document.getElementById('pipe-ctx-menu').classList.add('hidden');
-                    if(mode === 'pipe') handlePipe(n.id);
-                    else openProp(n.id, 'node');
-                });
-                mapItems.m[n.id] = m;
-            });
-        }
-
-        // ฟังก์ชันช่วยเปิด Properties จากเมนู
-        function openPipeProps() {
-            document.getElementById('pipe-ctx-menu').classList.add('hidden');
-            if(ctxPipeId) openProp(ctxPipeId, 'link');
-        }
-
-        // ฟังก์ชันสำหรับตัดเส้นท่อและแทรกอุปกรณ์
-        function insertAcc(type) {
-            document.getElementById('pipe-ctx-menu').classList.add('hidden');
-            if(!ctxPipeId || !ctxLatLng) return;
-
-            const pipe = links.find(p => p.id === ctxPipeId);
-            if(!pipe) return;
-
-            // ตั้งชื่อ ID ให้เหมาะสมกับอุปกรณ์
-            let prefix = 'V';
-            if (type === 'prv') prefix = 'PRV';
-            if (type === 'air_valve') prefix = 'AV';
-            if (type === 'hydrant') prefix = 'HYD';
-            
-            const nId = prefix + Date.now().toString().slice(-4);
-            const sNode = nodes.find(n => n.id === pipe.s);
-            const el = sNode ? sNode.el : 10;
-
-            const newNode = {
-                id: nId, type: type, lat: ctxLatLng.lat, lng: ctxLatLng.lng,
-                el: el, dem: type === 'hydrant' ? 10 : 0, head: 0, p: 0,
-                status: 'OPEN', setting: 15.0, prvSize: pipe.dia || 100, openPercent: 100
-            };
-            nodes.push(newNode);
-
-            // แบ่งครึ่งเส้นท่อตามพิกัดและลดความยาวท่อลงครึ่งหนึ่งตามหลักวิศวกรรม
-            const p1 = { ...pipe, id: 'L'+Date.now().toString().slice(-4)+'A', e: nId, len: Math.max(pipe.len / 2, 0.1) };
-            const p2 = { ...pipe, id: 'L'+Date.now().toString().slice(-4)+'B', s: nId, len: Math.max(pipe.len / 2, 0.1) };
-
-            links = links.filter(p => p.id !== ctxPipeId);
-            links.push(p1, p2);
-
-            ctxPipeId = null;
-            ctxLatLng = null;
-
-            isCalculated = false;
-            render();
-        }
-        
-        // --- 6. หน้าต่าง Properties (ข้อมูลท่อ/โหนด และ Dropdown ชนิดท่อ) ---
-        function updateMaterialInfo() {
-            const cValueInput = document.getElementById('i_cvalue');
-            const matDesc = document.getElementById('mat_desc');
-            
-            if(cValueInput && matDesc) {
-                const val = parseFloat(cValueInput.value);
-                const matchedMat = MATERIALS.find(m => m.c === val);
-                if(matchedMat) {
-                    matDesc.innerText = `💡 ${matchedMat.name} - ${matchedMat.desc}`;
-                } else {
-                    matDesc.innerText = `💡 กำหนดค่า C-Factor เอง (${val || 0})`;
-                }
-            }
-        }
-        
-        function updatePRVInfo() {
-            const sizeInput = document.getElementById('i_prv_size');
-            const flowSpan = document.getElementById('prv_max_flow');
-            const szLbl = document.getElementById('prv_sz_lbl');
-            if(sizeInput && flowSpan && szLbl) {
-                const sz = parseFloat(sizeInput.value);
-                if(isNaN(sz)) return;
-                szLbl.innerText = sz;
-                const d = sz / 1000;
-                const maxFlow = (Math.PI * Math.pow(d/2, 2)) * 2.5 * 3600; // คำนวณที่ V = 2.5 m/s
-                flowSpan.innerText = maxFlow.toFixed(1);
-            }
-        }
-
-        function openProp(id, type) {
-            selId = id;
-            const el = type==='node' ? nodes.find(n=>n.id===id) : links.find(l=>l.id===id);
-            if (!el) return;
-            document.getElementById('propPanel').classList.remove('hidden');
-            document.getElementById('pId').innerText = id;
-            const box = document.getElementById('pContent');
-            
-            let resHtml = '';
-            if (isCalculated) {
-                if(type === 'node') {
-                    const p_bar_val = (el.p || 0) / 10.197;
-                    resHtml = `<div class="panel-res-box"><div class="res-item"><span class="res-label">Total Head:</span><span class="res-val">${(el.head||0).toFixed(2)} m</span></div><div class="res-item"><span class="res-label">Pressure:</span><span class="res-val text-blue-600">${p_bar_val.toFixed(2)} bar</span></div></div>`;
-                } else {
-                    resHtml = `<div class="panel-res-box"><div class="res-item"><span class="res-label">Flow Rate:</span><span class="res-val text-blue-600">${Math.abs(el.flow||0).toFixed(2)} m³/h</span></div><div class="res-item"><span class="res-label">Velocity:</span><span class="res-val text-purple-600">${Math.abs(el.vel||0).toFixed(2)} m/s</span></div><div class="res-item"><span class="res-label">Headloss:</span><span class="res-val text-red-500">${(el.hl||0).toFixed(2)} m</span></div></div>`;
-                }
-            }
-            
-            if(type === 'node') {
-                document.getElementById('pType').innerText = el.type.toUpperCase();
-                let h = resHtml + `<div><label class="text-[10px] text-slate-400 font-bold uppercase">Elevation (ระดับดิน MSL)</label><input id="i_el" type="number" step="0.1" value="${el.el.toFixed(1)}" class="eng-input"></div>`;
-                
-                if(['valve'].includes(el.type)) {
-                    let currentPct = el.openPercent !== undefined ? el.openPercent : (el.status === 'CLOSED' ? 0 : 100);
-                    let openOpts = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100].map(v => 
-                        `<option value="${v}" ${currentPct == v ? 'selected' : ''}>${v}% ${v===0?'(ปิดสนิท)':v===100?'(เปิดเต็มที่)':''}</option>`
-                    ).join('');
-                    
-                    h += `<div class="mt-4 bg-blue-50/50 p-4 rounded-xl border border-blue-100 shadow-inner">
-                            <label class="text-[10px] text-blue-700 font-bold uppercase">Valve Opening (หรี่วาล์ว %)</label>
-                            <select id="i_valve_open" class="eng-input border-blue-200 bg-white mt-2">
-                                ${openOpts}
-                            </select>
-                            <p class="text-[9px] text-slate-500 mt-2 leading-relaxed">💡 <b>วิศวกรรมการหรี่วาล์ว:</b> การลดเปอร์เซ็นต์การเปิด จะเพิ่ม Headloss แบบทวีคูณและจำกัด Flow ในระบบโครงข่าย</p>
-                          </div>`;
-                }
-                
-                if(el.type === 'prv') {
-                    const currentPrvSize = el.prvSize || 100;
-                    // สร้าง Dropdown ขนาดท่อมาตรฐาน 40mm - 600mm
-                    let prvSizeOpts = PIPE_SIZES.filter(s => s >= 40 && s <= 600).map(s => `<option value="${s}" ${currentPrvSize==s?'selected':''}>${s} mm</option>`).join('');
-                    const initMaxFlow = ((Math.PI * Math.pow(currentPrvSize/2000, 2)) * 2.5 * 3600).toFixed(1);
-
-                    h += `<div class="mt-4 bg-orange-50/50 p-4 rounded-xl border border-orange-100 shadow-inner">
-                            <div class="grid grid-cols-2 gap-3 mb-3">
-                                <div>
-                                    <label class="text-[10px] text-orange-600 font-bold uppercase">Target Pressure (m)</label>
-                                    <input id="i_set" type="number" step="0.1" value="${el.setting||15.0}" class="eng-input border-orange-200 bg-white">
-                                </div>
-                                <div>
-                                    <label class="text-[10px] text-orange-600 font-bold uppercase">PRV Size (ขนาดวาล์ว)</label>
-                                    <select id="i_prv_size" class="eng-input border-orange-200 bg-white" onchange="updatePRVInfo()">
-                                        ${prvSizeOpts}
-                                    </select>
-                                </div>
-                            </div>
-                            <div class="bg-white p-3 rounded-lg border border-orange-100">
-                                <p class="text-[10px] text-orange-600 leading-relaxed text-justify">
-                                    <b>ทฤษฎีการใช้งาน:</b> ควรเลือกขนาด PRV ให้เล็กกว่าท่อเมนหลัก 1-2 ระดับ เพื่อให้วาล์วเปิดอยู่ในช่วงที่เหมาะสม ป้องกันการเกิด <b>Cavitation</b> และลดปัญหา <b>Hunting</b> (วาล์วเปิด-ปิดแกว่งไปมา)
-                                </p>
-                                <hr class="my-2 border-orange-100">
-                                <p class="text-[10px] text-slate-600">
-                                    💡 ขนาด <span id="prv_sz_lbl" class="font-bold text-blue-600">${currentPrvSize}</span> mm รองรับ Flow สูงสุด ~<span id="prv_max_flow" class="font-black text-blue-600 text-xs">${initMaxFlow}</span> m³/h <br><span class="text-[8px] text-slate-400">(คำนวณที่ความเร็วปลอดภัย V = 2.5 m/s)</span>
-                                </p>
-                            </div>
-                          </div>`;
-                }
-                else if(el.type === 'pump') {
-                    h += `<div class="mt-4 grid grid-cols-2 gap-2">
-                        <div><label class="text-[10px] text-orange-500 font-bold uppercase">Pump Head (m)</label><input id="i_pump_head" type="number" step="0.1" value="${el.pumpHead||30.0}" class="eng-input border-orange-100 bg-orange-50"></div>
-                        <div><label class="text-[10px] text-orange-500 font-bold uppercase">Design Flow (m³/h)</label><input id="i_pump_flow" type="number" step="1" value="${el.pumpFlow||100.0}" class="eng-input border-orange-100 bg-orange-50"></div>
-                    </div>`;
-                }
-                else if(['reservoir','tank'].includes(el.type)) h += `<div class="mt-4"><label class="text-[10px] text-cyan-600 font-bold uppercase">Water Level (m)</label><input id="i_wl" type="number" step="0.1" value="${el.waterLevel||10.0}" class="eng-input border-cyan-100 bg-cyan-50"></div>`;
-                else h += `<div class="mt-4"><label class="text-[10px] text-red-500 font-bold uppercase">Base Demand (m³/h)</label><input id="i_dem" type="number" step="0.1" value="${el.dem}" class="eng-input border-red-100"></div>`;
-                
-                box.innerHTML = h;
-            } else {
-                document.getElementById('pType').innerText = "PIPE DETAILS";
-                
-                let sizeOpts = PIPE_SIZES.map(s => `<option value="${s}" ${el.dia==s?'selected':''}>${s} mm</option>`).join('');
-                
-                // Datalist สำหรับค่า C (รองรับการเลือกและพิมพ์เอง)
-                let cOpts = MATERIALS.map(m => `<option value="${m.c}">${m.name} (C=${m.c})</option>`).join('');
-                const currentC = el.c || 150;
-                const matchedMat = MATERIALS.find(m => m.c === currentC);
-                const initDesc = matchedMat ? `${matchedMat.name} - ${matchedMat.desc}` : `กำหนดค่า C-Factor เอง (${currentC})`;
-
-                let h = resHtml + `
-                <div class="mb-4">
-                    <label class="text-[10px] text-slate-400 font-bold uppercase">ขนาดเส้นผ่านศูนย์กลาง (Diameter)</label>
-                    <select id="i_dia" class="eng-input bg-white mb-3">${sizeOpts}</select>
-                    
-                    <label class="text-[10px] text-slate-400 font-bold uppercase text-blue-600">ค่า C-Factor (เลือกหรือพิมพ์เองได้)</label>
-                    <input id="i_cvalue" type="number" list="cvalue-list" class="eng-input bg-blue-50 border-blue-200" value="${currentC}" oninput="updateMaterialInfo()" placeholder="พิมพ์ค่า C หรือเลือกจากรายการ">
-                    <datalist id="cvalue-list">${cOpts}</datalist>
-                    <p id="mat_desc" class="text-[10px] text-blue-600 mt-1 font-bold">💡 ${initDesc}</p>
-                    
-                    <div class="mt-3">
-                        <label class="text-[10px] text-slate-400 font-bold uppercase">ความยาวจริง (Length: m)</label>
-                        <input id="i_len" type="number" value="${Math.round(el.len)}" class="eng-input">
-                    </div>
-                </div>
-                
-                <div class="bg-blue-50/60 p-4 rounded-xl mt-4 border border-blue-100 shadow-inner">
-                    <h4 class="text-[10px] font-black text-blue-800 uppercase mb-2 flex items-center gap-1"><i class="fas fa-graduation-cap"></i> ทฤษฎีพลศาสตร์ของไหล</h4>
-                    <ul class="text-[9px] text-slate-600 leading-relaxed list-disc pl-3 space-y-1">
-                        <li><b>Major Loss:</b> ใช้สมการ <span class="text-blue-600 font-bold">Hazen-Williams</span> เป็นมาตรฐานหลักงานประปา</li>
-                        <li><b>Minor Loss:</b> ผสาน <span class="text-orange-600 font-bold">Darcy-Weisbach</span> ($K_m \\frac{V^2}{2g}$) เพื่อความแม่นยำเมื่อหรี่วาล์วและคำนวณ Flow Rate</li>
-                        <li><b>Reference:</b> สมการ <span class="text-purple-600 font-bold">Prony</span> เป็นทฤษฎีรากฐานแห่งการสูญเสียแรงเสียดทานที่ถูกต่อยอดมาสู่ระบบนี้</li>
-                    </ul>
-                </div>`;
-                box.innerHTML = h;
-            }
-        }
-
-        function toggleStatus() { const el = nodes.find(n=>n.id===selId); if (el) { el.status = el.status==='OPEN'?'CLOSED':'OPEN'; openProp(selId, 'node'); render(); } }
-        
-        // แปลงฟังก์ชันให้เป็นแบบ Asynchronous เพื่อรอให้ระบบคำนวณเสร็จก่อนแสดงผล
-        async function saveProp() {
-            const isN = nodes.some(n=>n.id===selId);
-            const el = isN ? nodes.find(n=>n.id===selId) : links.find(l=>l.id===selId);
-            if (!el) return;
-            if(isN) {
-                const elInput = document.getElementById('i_el'); if (elInput) el.el = parseFloat(elInput.value);
-                const setInput = document.getElementById('i_set'); if (setInput) el.setting = parseFloat(setInput.value);
-                const prvSizeInput = document.getElementById('i_prv_size'); if (prvSizeInput) el.prvSize = parseFloat(prvSizeInput.value);
-                const valveOpenInput = document.getElementById('i_valve_open'); 
-                if (valveOpenInput) {
-                    el.openPercent = parseInt(valveOpenInput.value);
-                    el.status = el.openPercent === 0 ? 'CLOSED' : 'OPEN';
-                }
-                const wlInput = document.getElementById('i_wl'); if (wlInput) el.waterLevel = parseFloat(wlInput.value);
-                const demInput = document.getElementById('i_dem'); if (demInput) el.dem = parseFloat(demInput.value);
-                
-                const pH = document.getElementById('i_pump_head'); if(pH) el.pumpHead = parseFloat(pH.value);
-                const pF = document.getElementById('i_pump_flow'); if(pF) el.pumpFlow = parseFloat(pF.value);
-            } else {
-                const diaInput = document.getElementById('i_dia'); if (diaInput) el.dia = parseFloat(diaInput.value);
-                const lenInput = document.getElementById('i_len'); if (lenInput) el.len = parseFloat(lenInput.value);
-                const cInput = document.getElementById('i_cvalue'); if (cInput) el.c = parseFloat(cInput.value); // รับค่า C จาก Input (ที่พิมพ์เองหรือเลือก)
-            }
-            closeProp(); 
-            await calculate(); // สั่งให้วิเคราะห์อัตโนมัติเมื่อกดบันทึกแก้ไขข้อมูล
-            render();
-        }
-
-        function closeProp() { document.getElementById('propPanel').classList.add('hidden'); selId = null; }
-        
-        async function deleteEl() { 
-            nodes = nodes.filter(n=>n.id!==selId); 
-            links = links.filter(l=>l.id!==selId && l.s!==selId && l.e!==selId); 
-            closeProp(); 
-            await calculate(); // สั่งให้วิเคราะห์อัตโนมัติเมื่อลบท่อหรือโหนดทิ้ง
-            render(); 
-        }
-        
-        function handlePipe(id) {
-            if(!startNodeId) { startNodeId = id; log("Select Destination"); }
-            else {
-                if(startNodeId !== id) {
-                    const n1 = nodes.find(n=>n.id===startNodeId);
-                    const n2 = nodes.find(n=>n.id===id);
-                    if (n1 && n2) {
-                        const d = L.latLng(n1.lat, n1.lng).distanceTo(L.latLng(n2.lat, n2.lng));
-                        links.push({ id: 'L'+Date.now().toString().slice(-4), s: startNodeId, e: id, len: d, dia: 100, mat: 'pvc', c: 150, flow: 0, vel: 0, hl: 0 });
-                        render();
-                    }
-                }
-                startNodeId = null; log("Ready");
-            }
-        }
-        
-        // --- 7. การบันทึกและแชร์ข้อมูลด้วย Cloud / Fallback ---
-        async function saveData() { 
-            const n = document.getElementById('pjName').value; 
-            if(!n) return alert("ระบุชื่อโครงการ"); 
-            
-            await calculate(); // สั่งวิเคราะห์ข้อมูลให้สมบูรณ์แบบก่อนเซฟโปรเจกต์ลงฐานข้อมูล
-            
-            localStorage.setItem('pj_'+n, JSON.stringify({nodes, links})); 
-            refreshPjList(); 
-            alert("บันทึกข้อมูลและวิเคราะห์ระบบเรียบร้อยแล้ว"); 
-            render();
-        }
-        function refreshPjList() { const sel = document.getElementById('pjList'); sel.innerHTML = '<option value="">-- โหลดงานที่บันทึกไว้ --</option>'; for(let i=0; i<localStorage.length; i++) { const k = localStorage.key(i); if(k.startsWith('pj_')) sel.innerHTML += `<option value="${k}">${k.replace('pj_','')}</option>`; } }
-        function loadData() { 
-            const k = document.getElementById('pjList').value; if(!k) return; 
-            const d = JSON.parse(localStorage.getItem(k)); if(d) { nodes = d.nodes; links = d.links; calculate().then(() => { render(); log("Loaded"); }); } 
-        }
-        function clearData() { if(confirm("ต้องการล้างหน้าจอทั้งหมดหรือไม่?")) { nodes=[]; links=[]; isCalculated=false; render(); } }
-
-        function shareURL() {
-            if(nodes.length === 0) return alert("ไม่มีข้อมูลที่จะแชร์");
-            // เลือกระบบ Cloud หากใช้งานได้ (รันผ่าน Canvas environment)
-            if(window.shareProjectToCloud) {
-                window.shareProjectToCloud(nodes, links);
-            } else {
-                // ระบบ Fallback ย่อลิงก์แบบออฟไลน์ด้วยตัวบีบอัด LZString
-                try {
-                    const dataStr = JSON.stringify({nodes, links});
-                    const encoded = LZString.compressToEncodedURIComponent(dataStr);
-                    const url = window.location.origin + window.location.pathname + '#v2=' + encoded;
-                    const el = document.createElement('textarea');
-                    el.value = url; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-                    alert("✅ คัดลอกลิงก์เรียบร้อยแล้ว (โหมดออฟไลน์)\nสามารถส่งลิงก์นี้ให้เพื่อนเปิดทำงานต่อได้เลยครับ");
-                } catch(e) { alert("เกิดข้อผิดพลาดในการสร้างลิงก์"); }
-            }
-        }
-
-        // ฟังก์ชันรับข้อมูลจาก Cloud เข้าสู่โปรแกรม
-        window.loadDataFromCloud = function(n, l) {
-            nodes = n; links = l;
-            if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
-            calculate().then(() => { render(); log("Loaded from Share"); });
-        };
-
-        function checkUrlHash() {
-            if(window.location.hash) {
-                try {
-                    let dataStr;
-                    // ตรวจจับระบบบีบอัดใหม่ (LZString) และระบบดั้งเดิม
-                    if(window.location.hash.startsWith('#v2=')) {
-                        dataStr = LZString.decompressFromEncodedURIComponent(window.location.hash.substring(4));
-                    } else if (window.location.hash.length > 5) {
-                        dataStr = decodeURIComponent(atob(window.location.hash.substring(1))); 
-                    }
-
-                    if(dataStr) {
-                        const data = JSON.parse(dataStr);
-                        if(data && data.nodes && data.links) {
-                            nodes = data.nodes; links = data.links;
-                            if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
-                            calculate().then(() => { render(); });
-                            window.history.replaceState(null, null, window.location.pathname); // ล้าง URL ให้สะอาด
-                        }
-                    }
-                } catch(e) {}
-            }
-        }
-
-        function toggleRes() { showRes = !showRes; render(); }
-        
-        // --- ส่วนที่ปรับปรุง: ฟังก์ชันค้นหาตำแหน่งและแสดงหมุด ---
-        function locate() { 
-            if(!navigator.geolocation) return alert("ไม่รองรับ GPS");
-            
-            log("Locating...");
-            navigator.geolocation.getCurrentPosition(
-                pos => {
-                    const latlng = [pos.coords.latitude, pos.coords.longitude];
-                    map.setView(latlng, 18); // ซูมไปที่ตำแหน่ง
-                    
-                    // หากมีหมุดเดิมอยู่แล้ว ให้อัปเดตตำแหน่ง ถ้ายังไม่มีให้สร้างใหม่
-                    if (userLocMarker) {
-                        userLocMarker.setLatLng(latlng);
-                    } else {
-                        // สร้างหมุดสีฟ้ากระพริบ เพื่อบอกว่านี่คือ "ตำแหน่งผู้ใช้"
-                        const iconHtml = `<div class="user-marker-pulse" style="width:16px;height:16px;background:#3b82f6;border:3px solid white;border-radius:50%;box-shadow:0 0 10px rgba(59,130,246,0.5);"></div>`;
-                        userLocMarker = L.marker(latlng, { 
-                            icon: L.divIcon({ className: 'flex justify-center items-center', html: iconHtml, iconSize: [16, 16] }),
-                            zIndexOffset: 1000 // ให้อยู่ด้านบนโหนดอื่นๆ
-                        }).addTo(map);
-                        
-                        // ใส่ Tooltip ให้หมุด
-                        userLocMarker.bindTooltip("ตำแหน่งของคุณ", { permanent: false, direction: 'top', className: 'custom-eng-tooltip' }).openTooltip();
-                    }
-                    log("Ready");
-                },
-                err => {
-                    alert("หาตำแหน่งไม่พบ กรุณาเปิดการอนุญาตการเข้าถึงตำแหน่ง GPS ของเบราว์เซอร์");
-                    log("Ready");
-                },
-                { enableHighAccuracy: true }
-            );
-        }
-
-        // --- 8. ระบบคำนวณวิศวกรรม (Hazen-Williams Calculation Engine) ---
-        function calculate() {
-            log("Computing...");
-            isCalculated = false;
-            
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    const sources = nodes.filter(n => ['reservoir','tank','pump'].includes(n.type));
-                    if(sources.length === 0) { alert("กรุณาระบุแหล่งจ่ายน้ำ (Reservoir/Tank) หรือปั๊ม"); resolve(); return; }
-
-                    // --- วิเคราะห์การเชื่อมต่อของกราฟ (Graph Connectivity Analysis - BFS) ---
-                    const adj = {};
-                    nodes.forEach(n => adj[n.id] = []);
-                    links.forEach(l => {
-                        const n1 = nodes.find(x => x.id === l.s);
-                        const n2 = nodes.find(x => x.id === l.e);
-                        if(n1 && n2) {
-                            let pct1 = n1.type === 'valve' ? (n1.openPercent !== undefined ? n1.openPercent : (n1.status === 'CLOSED' ? 0 : 100)) : 100;
-                            let pct2 = n2.type === 'valve' ? (n2.openPercent !== undefined ? n2.openPercent : (n2.status === 'CLOSED' ? 0 : 100)) : 100;
-                            
-                            if (pct1 > 0 && pct2 > 0) {
-                                adj[l.s].push(l.e);
-                                adj[l.e].push(l.s);
-                            }
-                        }
-                    });
-
-                    const connectedNodes = new Set();
-                    const queue = sources.map(s => s.id);
-                    queue.forEach(id => connectedNodes.add(id));
-
-                    let headIdx = 0;
-                    while(headIdx < queue.length) {
-                        const curr = queue[headIdx++];
-                        adj[curr].forEach(neighbor => {
-                            if (!connectedNodes.has(neighbor)) {
-                                connectedNodes.add(neighbor);
-                                queue.push(neighbor);
-                            }
-                        });
-                    }
-
-                    // กำหนด Head เริ่มต้น
-                    sources.forEach(s => { 
-                        s.head = s.el + (s.type === 'pump' ? (s.pumpHead || 50) : (s.waterLevel || 10)); 
-                    });
-                    
-                    nodes.forEach(n => { 
-                        if(!['reservoir','tank','pump'].includes(n.type)) {
-                            n.head = connectedNodes.has(n.id) ? n.el + 10 : n.el;
-                        }
-                    });
-
-                    // Algorithm จำลองแรงดันเบื้องต้น (Iterative Mass Balance - Nodal Method)
-                    for(let iter=0; iter<1000; iter++) { 
-                        let maxRes = 0;
-                        nodes.forEach(n => {
-                            if(['reservoir','tank','pump'].includes(n.type) || !connectedNodes.has(n.id)) return;
-                            
-                            let sumQ = 0, sumDqDh = 0;
-
-                            links.filter(l => l.s === n.id || l.e === n.id).forEach(l => {
-                                const neighborId = l.s === n.id ? l.e : l.s;
-                                const nb = nodes.find(x => x.id === neighborId);
-                                
-                                let pct1 = n.type === 'valve' ? (n.openPercent !== undefined ? n.openPercent : (n.status === 'CLOSED' ? 0 : 100)) : 100;
-                                let pct2 = nb.type === 'valve' ? (nb.openPercent !== undefined ? nb.openPercent : (nb.status === 'CLOSED' ? 0 : 100)) : 100;
-                                
-                                if (pct1 === 0 || pct2 === 0) return; 
-                                
-                                const D = l.dia / 1000;
-                                const C = l.c || 140; 
-                                const len = Math.max(l.len, 0.1);
-                                
-                                let throttle = Math.min(pct1, pct2) / 100.0;
-                                let throttleMultiplier = Math.pow(1 / throttle, 2);
-                                
-                                const K = (10.67 * len / (Math.pow(C, 1.852) * Math.pow(D, 4.8704))) * throttleMultiplier;
-                                
-                                let dH = nb.head - n.head;
-                                const sign = dH >= 0 ? 1 : -1;
-                                const absDH = Math.abs(dH);
-                                
-                                let Q = 0, dQdH = 0;
-                                const expQ = 1 / 1.852; 
-                                if (absDH > 1e-6) {
-                                    Q = sign * Math.pow(absDH / K, expQ);
-                                    dQdH = expQ * Math.abs(Q) / absDH;
-                                }
-                                sumQ += Q; sumDqDh += dQdH;
-                            });
-
-                            const demM3s = (n.dem || 0) / 3600;
-                            const residual = sumQ - demM3s;
-                            if(Math.abs(residual) > maxRes) maxRes = Math.abs(residual);
-
-                            if(sumDqDh > 1e-10) {
-                                let dh = residual / sumDqDh;
-                                dh = Math.max(-10, Math.min(10, dh)); 
-                                n.head += dh;
-                            }
-
-                            if (n.type === 'prv') {
-                                const targetHead = n.el + (n.setting || 15);
-                                if (n.head > targetHead) {
-                                    n.head = targetHead; 
-                                }
-                            }
-                        });
-                        if(maxRes < 1e-6) break; 
-                    }
-
-                    // คำนวณผลลัพธ์สุดท้าย (Flow, Vel, HL)
-                    let totD = 0, totS = 0, minP = 999;
-                    
-                    nodes.forEach(n => { 
-                        n.p = Math.max(0, n.head - n.el); 
-                        if(n.dem) totD += n.dem;
-                        if (!['reservoir','tank','pump'].includes(n.type) && n.p < minP) minP = n.p;
-                    });
-                    
-                    links.forEach(l => {
-                        const n1 = nodes.find(x=>x.id===l.s), n2 = nodes.find(x=>x.id===l.e);
-                        
-                        let pct1 = n1.type === 'valve' ? (n1.openPercent !== undefined ? n1.openPercent : (n1.status === 'CLOSED' ? 0 : 100)) : 100;
-                        let pct2 = n2.type === 'valve' ? (n2.openPercent !== undefined ? n2.openPercent : (n2.status === 'CLOSED' ? 0 : 100)) : 100;
-                        
-                        const dH = n1.head - n2.head;
-                        const absDH = Math.abs(dH);
-                        const flowDirection = dH >= 0 ? 1 : -1;
-
-                        const isIsolated = !connectedNodes.has(n1.id) || !connectedNodes.has(n2.id);
-
-                        if (pct1 === 0 || pct2 === 0 || isIsolated) {
-                            l.flow = 0;
-                            l.vel = 0;
-                            l.hl = (pct1 === 0 || pct2 === 0) ? absDH : 0; 
-                        } else {
-                            const D = l.dia / 1000;
-                            const C = l.c || 140;
-                            const len = Math.max(l.len, 0.1);
-                            
-                            let throttle = Math.min(pct1, pct2) / 100.0;
-                            let throttleMultiplier = Math.pow(1 / throttle, 2);
-                            
-                            const K = (10.67 * len / (Math.pow(C, 1.852) * Math.pow(D, 4.8704))) * throttleMultiplier;
-                            const expQ = 1 / 1.852; 
-                            
-                            const Q_m3s = absDH > 1e-6 ? Math.pow(absDH / K, expQ) : 0;
-                            
-                            l.flow = Q_m3s * 3600 * flowDirection; 
-                            l.vel = Q_m3s / (Math.PI * Math.pow(D/2, 2)) * flowDirection; 
-                            l.hl = absDH; 
-
-                            if(['reservoir','tank','pump'].includes(n1.type) && dH>0) totS += Math.abs(l.flow);
-                            if(['reservoir','tank','pump'].includes(n2.type) && dH<0) totS += Math.abs(l.flow);
-                        }
-                    });
-                    
-                    document.getElementById('val-supply').innerText = totS.toFixed(2) + ' m³/h';
-                    document.getElementById('val-demand').innerText = totD.toFixed(2) + ' m³/h';
-                    document.getElementById('val-min-p').innerText = ((minP === 999 ? 0 : minP) / 10.197).toFixed(2) + ' bar';
-                    document.getElementById('sysSummary').classList.add('show');
-
-                    isCalculated = true; render(); log("Done"); resolve();
-                }, 100);
-            });
-        }
-    </script>
-
-    <!-- ระบบ Cloud Sharing ข้ามอุปกรณ์ (Firebase Module) -->
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-        import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
-
-        const isCloudAvailable = typeof __firebase_config !== 'undefined';
-        
-        if (isCloudAvailable) {
-            const firebaseConfig = JSON.parse(__firebase_config);
-            const app = initializeApp(firebaseConfig);
-            const auth = getAuth(app);
-            const db = getFirestore(app);
-            const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-            
-            let authPromise = null;
-            const ensureAuth = () => {
-                if (authPromise) return authPromise;
-                authPromise = (async () => {
-                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                        await signInWithCustomToken(auth, __initial_auth_token);
-                    } else {
-                        await signInAnonymously(auth);
-                    }
-                })();
-                return authPromise;
-            };
-
-            // สร้างฟังก์ชันแชร์โปรเจกต์ไปยัง Cloud อัตโนมัติ
-            window.shareProjectToCloud = async (nodesData, linksData) => {
-                const stMsg = document.getElementById('st-msg');
-                if (stMsg) stMsg.innerText = "UPLOADING TO CLOUD...";
-                try {
-                    await ensureAuth();
-                    const shareId = 'pj_' + Date.now().toString(36) + Math.random().toString(36).substr(2, 4);
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'shared_projects', shareId);
-                    
-                    await setDoc(docRef, {
-                        nodes: nodesData,
-                        links: linksData,
-                        timestamp: new Date().toISOString()
-                    });
-                    
-                    // สร้างลิงก์สั้นและคลีน สำหรับส่งต่อ
-                    const url = window.location.origin + window.location.pathname + '?share=' + shareId;
-                    
-                    const el = document.createElement('textarea');
-                    el.value = url; document.body.appendChild(el); el.select(); document.execCommand('copy'); document.body.removeChild(el);
-                    
-                    alert("✅ คัดลอกลิงก์สำเร็จแล้ว!\nลิงก์สั้นถูกสร้างผ่านระบบ Cloud เรียบร้อย คุณสามารถนำไปวางส่งให้เพื่อนเปิดเพื่อแก้ไข/ทำงานต่อในเครื่องอื่นได้ทันทีครับ");
-                } catch(e) {
-                    console.error("Cloud share error:", e);
-                    alert("❌ เกิดข้อผิดพลาดในการเชื่อมต่อ Cloud");
-                }
-                if (stMsg) stMsg.innerText = "READY";
-            };
-
-            // ตรวจจับและดึงข้อมูลเมื่อมีการเปิดลิงก์แชร์จากผู้อื่น
-            window.loadSharedProjectCloud = async () => {
-                const urlParams = new URLSearchParams(window.location.search);
-                const shareId = urlParams.get('share');
-                if (!shareId) return;
-
-                const stMsg = document.getElementById('st-msg');
-                if (stMsg) stMsg.innerText = "DOWNLOADING...";
-                
-                try {
-                    await ensureAuth();
-                    const docRef = doc(db, 'artifacts', appId, 'public', 'data', 'shared_projects', shareId);
-                    const snap = await getDoc(docRef);
-                    
-                    if (snap.exists()) {
-                        const data = snap.data();
-                        if (window.loadDataFromCloud) {
-                            window.loadDataFromCloud(data.nodes, data.links);
-                        }
-                    } else {
-                        alert("❌ ไม่พบข้อมูล หรือลิงก์แชร์หมดอายุ");
-                    }
-                } catch(e) {
-                    console.error("Cloud load error:", e);
-                    alert("❌ เกิดข้อผิดพลาดในการดาวน์โหลดข้อมูลจากระบบ Cloud");
-                }
-                
-                if (stMsg) stMsg.innerText = "READY";
-                // ล้างพารามิเตอร์ด้านหลังลิงก์ทิ้งเพื่อความสวยงาม
-                window.history.replaceState(null, null, window.location.pathname);
-            };
-
-            window.loadSharedProjectCloud();
-        }
-    </script>
+<!-- Firebase Cloud Sharing -->
+<script type="module">
+  import{initializeApp}from"https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+  import{getAuth,signInAnonymously,signInWithCustomToken}from"https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+  import{getFirestore,doc,setDoc,getDoc}from"https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+  const isC=typeof __firebase_config!=='undefined';
+  if(isC){
+    const app=initializeApp(JSON.parse(__firebase_config));
+    const auth=getAuth(app),db=getFirestore(app);
+    const aId=typeof __app_id!=='undefined'?__app_id:'default-app-id';
+    let ap=null;
+    const ea=()=>{if(ap)return ap;ap=(async()=>{if(typeof __initial_auth_token!=='undefined'&&__initial_auth_token)await signInWithCustomToken(auth,__initial_auth_token);else await signInAnonymously(auth);})();return ap;};
+    window.shareProjectToCloud=async(nd,lk)=>{
+      log("UPLOADING...");
+      try{await ea();const sid='pj_'+Date.now().toString(36)+Math.random().toString(36).substr(2,4);await setDoc(doc(db,'artifacts',aId,'public','data','shared_projects',sid),{nodes:nd,links:lk,timestamp:new Date().toISOString()});const url=window.location.origin+window.location.pathname+'?share='+sid;const ok=await window.copyToClipboard(url);if(ok)alert("✅ คัดลอกลิงก์ Cloud เรียบร้อยแล้ว!");else alert("ลิงก์: "+url);}catch(e){console.error(e);alert("❌ เกิดข้อผิดพลาดในการ Upload");}
+      log("READY");
+    };
+    window.loadSharedProjectCloud=async()=>{
+      const sp=new URLSearchParams(window.location.search).get('share');if(!sp)return;
+      log("DOWNLOADING...");
+      try{await ea();const snap=await getDoc(doc(db,'artifacts',aId,'public','data','shared_projects',sp));if(snap.exists()){const d=snap.data();if(window.loadDataFromCloud)window.loadDataFromCloud(d.nodes,d.links);}else alert("❌ ไม่พบข้อมูล หรือลิงก์หมดอายุ");}catch(e){console.error(e);alert("❌ เกิดข้อผิดพลาดในการดาวน์โหลด");}
+      log("READY");window.history.replaceState(null,null,window.location.pathname);
+    };
+    window.loadSharedProjectCloud();
+  }
+</script>
 </body>
 </html>
