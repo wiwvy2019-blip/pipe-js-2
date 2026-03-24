@@ -22,6 +22,7 @@
       .float-btn{background:white;border:1px solid rgba(0,0,0,0.1);border-radius:14px;min-width:48px;height:48px;display:flex;align-items:center;justify-content:center;gap:6px;padding:0 12px;box-shadow:0 4px 14px rgba(0,0,0,0.12);cursor:pointer;transition:all 0.2s;color:#475569;font-size:11px;font-weight:700;white-space:nowrap;}
       .float-btn:hover{background:#f8fafc;transform:translateY(-1px);}
       .float-btn.active{background:var(--primary);color:white;border-color:var(--primary);}
+      .float-btn:disabled{opacity:0.5;cursor:not-allowed;}
       .float-btn i{font-size:15px;}
       .tool-card{cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:10px 6px;border:1.5px solid #e2e8f0;border-radius:14px;background:white;gap:4px;transition:all 0.18s;min-height:68px;}
       .tool-card:hover{border-color:#93c5fd;background:#eff6ff;transform:translateY(-1px);}
@@ -66,6 +67,10 @@
     <button class="float-btn" onclick="toggleDrawer()"><i class="fas fa-bars"></i><span>เมนู</span></button>
   </div>
   <div style="position:fixed;top:16px;right:16px;display:flex;gap:8px;align-items:center;">
+    <!-- Undo / Redo Buttons -->
+    <button class="float-btn" id="btn-undo" onclick="undo()" style="min-width:36px;padding:0 10px;" title="ย้อนกลับ (Undo)"><i class="fas fa-undo"></i></button>
+    <button class="float-btn" id="btn-redo" onclick="redo()" style="min-width:36px;padding:0 10px;" title="ทำซ้ำ (Redo)"><i class="fas fa-redo"></i></button>
+
     <button class="float-btn" onclick="forceMapFix()"><i class="fas fa-sync-alt"></i><span>รีเฟรช</span></button>
     <button class="float-btn" onclick="locate()"><i class="fas fa-crosshairs"></i><span>ตำแหน่งฉัน</span></button>
     <button class="float-btn active" id="btn-res" onclick="toggleRes()"><i class="fas fa-tags"></i><span id="btn-res-label">ซ่อนป้าย</span></button>
@@ -88,7 +93,7 @@
     </button>
     <div style="height:1px;background:#f1f5f9;margin:4px 0;"></div>
     <button class="ctx-menu-item" style="color:#334155;" onclick="insertAcc('valve')">
-      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="2" y="10" width="20" height="4" rx="2" fill="#22c55e"/><path d="M9 10L12 4L15 10" fill="#22c55e"/><circle cx="12" cy="12" r="2" fill="white"/></svg>
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><line x1="6" y1="6" x2="6" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#22c55e" stroke-width="2"/></svg>
       ประตูน้ำ (Gate Valve)
     </button>
     <button class="ctx-menu-item" style="color:#334155;" onclick="insertAcc('prv')">
@@ -270,15 +275,65 @@
 
 <script>
 // ============================================================
+//  UNDO / REDO SYSTEM
+// ============================================================
+let stateHistory = [];
+let historyIndex = -1;
+
+function saveState() {
+  if (historyIndex < stateHistory.length - 1) {
+    stateHistory = stateHistory.slice(0, historyIndex + 1);
+  }
+  stateHistory.push(JSON.stringify({ nodes, links }));
+  historyIndex++;
+  if (stateHistory.length > 50) {
+    stateHistory.shift();
+    historyIndex--;
+  }
+  updateUndoRedoButtons();
+}
+
+function undo() {
+  if (historyIndex > 0) {
+    historyIndex--;
+    const state = JSON.parse(stateHistory[historyIndex]);
+    nodes = state.nodes;
+    links = state.links;
+    isCalculated = false;
+    render();
+    updateUndoRedoButtons();
+  }
+}
+
+function redo() {
+  if (historyIndex < stateHistory.length - 1) {
+    historyIndex++;
+    const state = JSON.parse(stateHistory[historyIndex]);
+    nodes = state.nodes;
+    links = state.links;
+    isCalculated = false;
+    render();
+    updateUndoRedoButtons();
+  }
+}
+
+function updateUndoRedoButtons() {
+  const btnUndo = document.getElementById('btn-undo');
+  const btnRedo = document.getElementById('btn-redo');
+  if(btnUndo) btnUndo.disabled = historyIndex <= 0;
+  if(btnRedo) btnRedo.disabled = historyIndex >= stateHistory.length - 1;
+}
+
+// ============================================================
 //  SVG ICON LIBRARY
 // ============================================================
 const SVG = {
   tank:`<svg width="36" height="40" viewBox="0 0 26 28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"><line x1="7" y1="22" x2="5" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="22" x2="21" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><line x1="13" y1="22" x2="13" y2="28" stroke="#7c3aed" stroke-width="1.5" stroke-linecap="round"/><ellipse cx="13" cy="8" rx="9" ry="3" fill="#c4b5fd"/><rect x="4" y="8" width="18" height="14" fill="#8b5cf6"/><ellipse cx="13" cy="22" rx="9" ry="3" fill="#7c3aed"/><rect x="4" y="15" width="18" height="7" fill="#60a5fa" opacity="0.5"/><ellipse cx="13" cy="15" rx="9" ry="3" fill="#93c5fd" opacity="0.7"/><rect x="11" y="22" width="4" height="4" fill="#6d28d9"/></svg>`,
   reservoir:`<svg width="36" height="36" viewBox="0 0 26 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"><rect x="2" y="12" width="22" height="12" rx="2" fill="#0891b2"/><path d="M2 14 Q7 11 13 14 Q19 17 24 14" fill="none" stroke="white" stroke-width="1.5" opacity="0.7"/><path d="M2 17 Q7 14 13 17 Q19 20 24 17" fill="none" stroke="white" stroke-width="1.5" opacity="0.5"/><rect x="1" y="8" width="24" height="5" rx="1" fill="#0c4a6e"/><rect x="5" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/><rect x="11" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/><rect x="17" y="6" width="3" height="3" rx="0.5" fill="#0c4a6e"/></svg>`,
   pump:`<svg width="36" height="36" viewBox="0 0 26 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.3))"><circle cx="13" cy="13" r="9" fill="#ef4444" stroke="#b91c1c" stroke-width="1.5"/><path d="M13 13 L13 6 Q17 9 13 13Z" fill="white" opacity="0.9"/><path d="M13 13 L19 16 Q15 20 13 13Z" fill="white" opacity="0.9"/><path d="M13 13 L7 16 Q6 10 13 13Z" fill="white" opacity="0.9"/><circle cx="13" cy="13" r="2.5" fill="#b91c1c"/><rect x="0" y="11" width="5" height="4" rx="1" fill="#dc2626"/><rect x="21" y="11" width="5" height="4" rx="1" fill="#dc2626"/></svg>`,
-  valve_open:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="2" y="10" width="20" height="4" rx="2" fill="#22c55e"/><path d="M8 10 L12 4 L16 10Z" fill="#22c55e" stroke="white" stroke-width="0.5"/><circle cx="12" cy="12" r="2.5" fill="white"/><line x1="12" y1="14" x2="12" y2="20" stroke="#22c55e" stroke-width="2" stroke-linecap="round"/></svg>`,
-  valve_partial:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="2" y="10" width="20" height="4" rx="2" fill="#f59e0b"/><path d="M8 10 L12 4 L16 10Z" fill="#f59e0b" stroke="white" stroke-width="0.5"/><circle cx="12" cy="12" r="2.5" fill="white"/><line x1="12" y1="14" x2="12" y2="20" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/></svg>`,
-  valve_closed:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="2" y="10" width="20" height="4" rx="2" fill="#ef4444"/><path d="M8 14 L12 20 L16 14Z" fill="#ef4444" stroke="white" stroke-width="0.5"/><circle cx="12" cy="12" r="2.5" fill="white"/><line x1="12" y1="4" x2="12" y2="10" stroke="#ef4444" stroke-width="2" stroke-linecap="round"/></svg>`,
+  valve_open:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><line x1="6" y1="6" x2="6" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#22c55e" stroke-width="3"/></svg>`,
+  valve_partial:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><line x1="6" y1="6" x2="6" y2="18" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#f59e0b" stroke-width="3"/></svg>`,
+  valve_closed:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><line x1="6" y1="6" x2="6" y2="18" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#ef4444" stroke-width="3"/></svg>`,
   prv:`<svg width="32" height="32" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text><path d="M8 12 L10 10 L10 14Z" fill="#f97316"/><path d="M16 12 L14 10 L14 14Z" fill="#f97316"/></svg>`,
   air_valve:`<svg width="30" height="32" viewBox="0 0 24 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><rect x="5" y="14" width="14" height="5" rx="1" fill="#06b6d4"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"/><path d="M7 7 L5 4 M12 6 L12 3 M17 7 L19 4" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="22" x2="12" y2="26" stroke="#0891b2" stroke-width="2" stroke-linecap="round"/></svg>`,
   hydrant:`<svg width="30" height="34" viewBox="0 0 24 28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="5" rx="1" fill="#ef4444"/><path d="M10 12 L10 8 Q12 6 14 8 L14 12" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/><rect x="9" y="6" width="6" height="3" rx="1" fill="#b91c1c"/><circle cx="12" cy="5" r="2" fill="#b91c1c"/><line x1="5" y1="17.5" x2="2" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="17.5" x2="22" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="24" x2="12" y2="28" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/></svg>`,
@@ -321,7 +376,15 @@ const MATERIALS=[
   {id:'galv',name:'Galvanized (อาบสังกะสี)',c:100,desc:'ท่อเหล็กอาบสังกะสี (ผ่านการใช้งาน)'}
 ];
 
-document.addEventListener('DOMContentLoaded',()=>{ initMap(); refreshPjList(); setTimeout(checkUrlHash,200); });
+document.addEventListener('DOMContentLoaded',()=>{ 
+  initMap(); 
+  refreshPjList(); 
+  setTimeout(() => {
+    checkUrlHash();
+    saveState(); // Save initial empty or loaded state for Undo/Redo
+  }, 200); 
+});
+
 function log(t){ const el=document.getElementById('st-msg'); if(el) el.innerText='⚡ '+t.toUpperCase(); }
 
 function initMap(){
@@ -370,8 +433,8 @@ async function onMapClick(e){
       if(d.elevation&&d.elevation[0]!==null) el=d.elevation[0];
     }catch(err){}
     const id=mode[0].toUpperCase()+Date.now().toString().slice(-4);
-    // Added pumpShutoff for Pump Curve
     nodes.push({id,type:mode,lat:e.latlng.lat,lng:e.latlng.lng,el,dem:0,head:0,p:0,status:'OPEN',setting:15.0,waterLevel:20,pumpShutoff:45,pumpHead:30,pumpFlow:100,prvSize:100,openPercent:100,cvFlowAngle:0,cvBlocked:false});
+    saveState();
     render(); log("Ready");
   }
 }
@@ -490,7 +553,6 @@ function render(){
         nc+=`<span style="color:#0d9488;"><b>🧭 ทิศน้ำ:</b> ${(n.cvFlowAngle||0).toFixed(0)}°</span><br>`;
       }
     } else if(n.type==='pump'){
-      // Update Tooltip to show Actual Operating Head calculated by Pump Curve
       let actH = isCalculated ? (n.head - n.el).toFixed(2) : (n.pumpHead||30);
       nc+=`<span style="color:#ef4444;"><b>⚡ Op. Head:</b> ${actH} m</span><br>`;
       nc+=`<span style="color:#94a3b8;font-size:9px;">Curve: H₀=${n.pumpShutoff||45}, H_d=${n.pumpHead||30}</span><br>`;
@@ -530,7 +592,9 @@ function insertAcc(type){
   const p1={id:'L'+Date.now().toString().slice(-4)+'A',s:pipe.s,e:nId,len:half,dia:pipe.dia,mat:pipe.mat,c:pipe.c,flow:0,vel:0,hl:0};
   const p2={id:'L'+(Date.now()+1).toString().slice(-4)+'B',s:nId,e:pipe.e,len:half,dia:pipe.dia,mat:pipe.mat,c:pipe.c,flow:0,vel:0,hl:0};
   links=links.filter(p=>p.id!==ctxPipeId); links.push(p1,p2);
-  ctxPipeId=null; ctxLatLng=null; isCalculated=false; render();
+  ctxPipeId=null; ctxLatLng=null; isCalculated=false; 
+  saveState();
+  render();
 }
 
 // ============================================================
@@ -541,7 +605,7 @@ const TYPE_ICONS={
   tank:`<svg width="20" height="22" viewBox="0 0 26 28"><line x1="7" y1="22" x2="5" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="22" x2="21" y2="28" stroke="#7c3aed" stroke-width="2" stroke-linecap="round"/><ellipse cx="13" cy="8" rx="9" ry="3" fill="#c4b5fd"/><rect x="4" y="8" width="18" height="14" fill="#8b5cf6"/><ellipse cx="13" cy="22" rx="9" ry="3" fill="#7c3aed"/></svg>`,
   reservoir:`<svg width="20" height="20" viewBox="0 0 26 26"><rect x="2" y="12" width="22" height="12" rx="2" fill="#0891b2"/><rect x="1" y="8" width="24" height="5" rx="1" fill="#0c4a6e"/></svg>`,
   pump:`<svg width="20" height="20" viewBox="0 0 26 26"><circle cx="13" cy="13" r="9" fill="#ef4444"/><path d="M13 13 L13 6 Q17 9 13 13Z" fill="white" opacity="0.9"/></svg>`,
-  valve:`<svg width="20" height="20" viewBox="0 0 24 24"><rect x="2" y="10" width="20" height="4" rx="2" fill="#22c55e"/><path d="M8 10 L12 4 L16 10Z" fill="#22c55e"/><circle cx="12" cy="12" r="2" fill="white"/></svg>`,
+  valve:`<svg width="20" height="20" viewBox="0 0 24 24"><line x1="6" y1="6" x2="6" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#22c55e" stroke-width="2"/></svg>`,
   prv:`<svg width="20" height="20" viewBox="0 0 24 24"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text></svg>`,
   air_valve:`<svg width="18" height="20" viewBox="0 0 24 26"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2"/></svg>`,
   hydrant:`<svg width="18" height="20" viewBox="0 0 24 28"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="4" rx="1" fill="#ef4444"/><path d="M10 12 V8 Q12 6 14 8 V12" fill="none" stroke="#dc2626" stroke-width="2"/></svg>`,
@@ -651,6 +715,7 @@ async function saveProp(){
     if(l) el.len=parseFloat(l.value)||1;
     if(c) el.c=parseFloat(c.value)||150;
   }
+  saveState();
   closeProp(); await calculate(); render();
 }
 function closeProp(){ document.getElementById('propPanel').classList.add('hidden'); selId=null; }
@@ -665,6 +730,7 @@ function flipCV(id) {
   const cv = nodes.find(n => n.id === id);
   if(cv) cv.cvBlocked = false; // เคลียร์สถานะถูกบล็อกเดิมทิ้ง
   isCalculated = false; // สั่งให้ Flow ต้องถูกคำนวณใหม่
+  saveState();
   render(); // โหลดกราฟิกและลูกศรใหม่
   openProp(id, 'node'); // รีเฟรชหน้าต่าง properties
 }
@@ -672,6 +738,7 @@ function flipCV(id) {
 async function deleteEl(){
   nodes=nodes.filter(n=>n.id!==selId);
   links=links.filter(l=>l.id!==selId&&l.s!==selId&&l.e!==selId);
+  saveState();
   closeProp();
   const src=nodes.filter(n=>['reservoir','tank','pump'].includes(n.type));
   if(src.length>0&&links.length>0) await calculate();
@@ -683,7 +750,12 @@ function handlePipe(id){
   else{
     if(startNodeId!==id){
       const n1=nodes.find(n=>n.id===startNodeId),n2=nodes.find(n=>n.id===id);
-      if(n1&&n2){const d=L.latLng(n1.lat,n1.lng).distanceTo(L.latLng(n2.lat,n2.lng));links.push({id:'L'+Date.now().toString().slice(-4),s:startNodeId,e:id,len:d,dia:100,mat:'pvc',c:150,flow:0,vel:0,hl:0});render();}
+      if(n1&&n2){
+        const d=L.latLng(n1.lat,n1.lng).distanceTo(L.latLng(n2.lat,n2.lng));
+        links.push({id:'L'+Date.now().toString().slice(-4),s:startNodeId,e:id,len:d,dia:100,mat:'pvc',c:150,flow:0,vel:0,hl:0});
+        saveState();
+        render();
+      }
     }
     startNodeId=null;log("Ready");
   }
@@ -703,11 +775,22 @@ function refreshPjList(){
 }
 function loadData(){
   const k=document.getElementById('pjList').value; if(!k) return;
-  try{const d=JSON.parse(localStorage.getItem(k));if(d&&d.nodes&&d.links){nodes=d.nodes;links=d.links;calculate().then(()=>{render();log("Loaded");});}}
+  try{
+    const d=JSON.parse(localStorage.getItem(k));
+    if(d&&d.nodes&&d.links){
+      nodes=d.nodes;links=d.links;
+      saveState();
+      calculate().then(()=>{render();log("Loaded");});
+    }
+  }
   catch(e){alert("ไม่สามารถโหลดข้อมูลได้");}
 }
 function clearData(){
-  if(confirm("⚠️ ต้องการล้างหน้าจอทั้งหมดหรือไม่?")){nodes=[];links=[];isCalculated=false;document.getElementById('sysSummary').classList.remove('show');render();}
+  if(confirm("⚠️ ต้องการล้างหน้าจอทั้งหมดหรือไม่?")){
+    nodes=[];links=[];isCalculated=false;document.getElementById('sysSummary').classList.remove('show');
+    saveState();
+    render();
+  }
 }
 async function copyToClipboard(text){
   try{await navigator.clipboard.writeText(text);return true;}
@@ -727,6 +810,7 @@ async function shareURL(){
 window.loadDataFromCloud=function(n,l){
   nodes=n;links=l;
   if(nodes.length>0&&map)map.setView([nodes[0].lat,nodes[0].lng],16);
+  saveState();
   calculate().then(()=>{render();log("Loaded from Share");});
 };
 function checkUrlHash(){
@@ -785,6 +869,7 @@ function importFile(event) {
       const data = JSON.parse(e.target.result);
       if(data.nodes && data.links) {
         nodes = data.nodes; links = data.links;
+        saveState();
         if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
         calculate().then(()=>render());
         document.getElementById('pjName').value = file.name.replace('.json','').replace('_Backup','');
