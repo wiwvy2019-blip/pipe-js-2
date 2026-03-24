@@ -40,7 +40,7 @@
       .sys-row{display:flex;justify-content:space-between;align-items:center;font-size:11px;}
       .sys-label{font-weight:600;color:#64748b;}
       .sys-val{font-weight:800;font-family:'Inter',sans-serif;}
-      .custom-eng-tooltip{background:rgba(255,255,255,0.97);border:1px solid #cbd5e1;border-radius:8px;padding:7px 11px;font-family:'Inter','Sarabun',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.12);font-size:11px;line-height:1.5;backdrop-filter:blur(4px);white-space:nowrap;}
+      .custom-eng-tooltip{background:rgba(255,255,255,0.97);border:1px solid #cbd5e1;border-radius:6px;padding:5px 8px;font-family:'Inter','Sarabun',sans-serif;box-shadow:0 4px 14px rgba(0,0,0,0.12);font-size:8px;line-height:1.4;backdrop-filter:blur(4px);white-space:nowrap;}
       .leaflet-tooltip-top.custom-eng-tooltip::before{border-top-color:#cbd5e1;}
       .leaflet-tooltip-right.custom-eng-tooltip::before{border-right-color:#cbd5e1;}
       .leaflet-tooltip-left.custom-eng-tooltip::before{border-left-color:#cbd5e1;}
@@ -54,7 +54,6 @@
       .ctx-menu-item{width:100%;text-align:left;padding:8px 14px;border-radius:10px;display:flex;align-items:center;gap:10px;font-size:12px;font-weight:700;cursor:pointer;transition:background 0.15s;border:none;background:none;}
       .ctx-menu-item:hover{background:#f1f5f9;}
       .node-svg-wrap{display:flex;align-items:center;justify-content:center;filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25));}
-      /* Check-valve arrow animation */
       @keyframes cv-flow{0%{opacity:0;transform:translateX(-4px)}60%{opacity:1}100%{opacity:0;transform:translateX(4px)}}
       .cv-arrow-ani{animation:cv-flow 1.2s infinite;}
     </style>
@@ -96,7 +95,6 @@
       <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><rect x="1" y="9" width="8" height="6" rx="2" fill="#f97316"/><rect x="15" y="9" width="8" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="4" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/><text x="12" y="15.5" text-anchor="middle" font-size="6" font-weight="900" fill="#f97316">P</text></svg>
       PRV (ลดแรงดัน)
     </button>
-    <!-- CHECK VALVE entry — highlighted teal -->
     <button class="ctx-menu-item" style="color:#0d9488;font-weight:900;background:#f0fdfa;border-radius:10px;" onclick="insertAcc('check_valve')">
       <svg width="16" height="16" viewBox="0 0 32 22">
         <rect x="0" y="8" width="8" height="6" rx="1.5" fill="#0d9488"/>
@@ -125,7 +123,7 @@
     <div style="padding:20px 24px 16px;border-bottom:1px solid #f1f5f9;display:flex;justify-content:space-between;align-items:center;background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);">
       <div>
         <div style="font-size:22px;font-weight:900;font-style:italic;color:white;letter-spacing:-0.03em;font-family:'Inter',sans-serif;">PIPE<span style="color:#60a5fa;">-JS</span> <span style="color:#fbbf24;font-size:14px;vertical-align:middle;border:1px solid #fbbf24;border-radius:4px;padding:1px 6px;">PRO</span></div>
-        <div style="font-size:9px;color:#94a3b8;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">ระบบวิเคราะห์โครงข่ายท่อประปา</div>
+        <div style="font-size:9px;color:#94a3b8;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;margin-top:3px;">BY คนไม่สัญจร</div>
       </div>
       <button onclick="toggleDrawer()" style="width:32px;height:32px;border-radius:8px;background:rgba(255,255,255,0.1);border:none;cursor:pointer;display:flex;align-items:center;justify-content:center;"><i class="fas fa-times" style="color:white;"></i></button>
     </div>
@@ -210,12 +208,24 @@
             <i class="fas fa-save" style="font-size:16px;"></i><span>บันทึก</span>
           </button>
           <button onclick="shareURL()" style="background:#f0fdf4;color:#16a34a;border:1.5px solid #bbf7d0;border-radius:12px;padding:11px 6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;" onmouseover="this.style.background='#dcfce7'" onmouseout="this.style.background='#f0fdf4'">
-            <i class="fas fa-share-nodes" style="font-size:16px;"></i><span>แชร์</span>
+            <i class="fas fa-share-nodes" style="font-size:16px;"></i><span>แชร์ลิงก์</span>
           </button>
           <button onclick="clearData()" style="background:#fff1f2;color:#ef4444;border:1.5px solid #fecdd3;border-radius:12px;padding:11px 6px;font-size:11px;font-weight:800;cursor:pointer;display:flex;flex-direction:column;align-items:center;gap:4px;" onmouseover="this.style.background='#ffe4e6'" onmouseout="this.style.background='#fff1f2'">
             <i class="fas fa-trash-can" style="font-size:16px;"></i><span>ล้างจอ</span>
           </button>
         </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px;">
+           <button onclick="exportCSV()" style="background:#fffbeb;color:#d97706;border:1.5px solid #fde68a;border-radius:12px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background='#fef3c7'" onmouseout="this.style.background='#fffbeb'">
+            <i class="fas fa-file-csv"></i><span>ส่งออกตาราง CSV</span>
+          </button>
+          <button onclick="document.getElementById('file-upload').click()" style="background:#faf5ff;color:#9333ea;border:1.5px solid #e9d5ff;border-radius:12px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background='#f3e8ff'" onmouseout="this.style.background='#faf5ff'">
+            <i class="fas fa-folder-open"></i><span>เปิดไฟล์ (.json)</span>
+          </button>
+          <input type="file" id="file-upload" style="display:none" accept=".json" onchange="importFile(event)">
+        </div>
+        <button onclick="exportJSON()" style="width:100%;margin-bottom:10px;background:#e0e7ff;color:#4f46e5;border:1.5px solid #c7d2fe;border-radius:12px;padding:8px 6px;font-size:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px;" onmouseover="this.style.background='#c7d2fe'" onmouseout="this.style.background='#e0e7ff'">
+            <i class="fas fa-download"></i><span>บันทึกไฟล์โครงการ (.json) เพื่อแชร์</span>
+        </button>
         <div style="display:flex;align-items:center;gap:8px;">
           <i class="fas fa-folder-open" style="color:#94a3b8;font-size:14px;flex-shrink:0;"></i>
           <select id="pjList" onchange="loadData()" style="flex:1;padding:10px 12px;border:1.5px solid #e2e8f0;border-radius:12px;font-size:12px;font-weight:700;background:white;outline:none;font-family:'Sarabun',sans-serif;">
@@ -272,33 +282,21 @@ const SVG = {
   prv:`<svg width="32" height="32" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text><path d="M8 12 L10 10 L10 14Z" fill="#f97316"/><path d="M16 12 L14 10 L14 14Z" fill="#f97316"/></svg>`,
   air_valve:`<svg width="30" height="32" viewBox="0 0 24 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><rect x="5" y="14" width="14" height="5" rx="1" fill="#06b6d4"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"/><path d="M7 7 L5 4 M12 6 L12 3 M17 7 L19 4" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="22" x2="12" y2="26" stroke="#0891b2" stroke-width="2" stroke-linecap="round"/></svg>`,
   hydrant:`<svg width="30" height="34" viewBox="0 0 24 28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="5" rx="1" fill="#ef4444"/><path d="M10 12 L10 8 Q12 6 14 8 L14 12" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/><rect x="9" y="6" width="6" height="3" rx="1" fill="#b91c1c"/><circle cx="12" cy="5" r="2" fill="#b91c1c"/><line x1="5" y1="17.5" x2="2" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="17.5" x2="22" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="24" x2="12" y2="28" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/></svg>`,
-
-  // ── CHECK VALVE ──────────────────────────────────────────────
-  // angle = องศาหมุน (คำนวณจากทิศทาง flow จริง)
-  // blocked = true เมื่อ flow กำลังถูกกัน (แสดง X กระพริบ)
   check_valve: (angleDeg=0, blocked=false) => {
     const blockedClass = blocked ? 'cv-blocked' : '';
-    // ลูกศรชี้ทิศทางอนุญาต แอนิเมต เมื่อน้ำไหลผ่าน
     const arrowAni = !blocked ? 'cv-arrow-ani' : '';
     return `<svg width="44" height="30" viewBox="0 0 44 30"
         style="filter:drop-shadow(0 2px 5px rgba(0,0,0,0.3));transform:rotate(${angleDeg}deg);transform-origin:50% 50%;overflow:visible;"
         class="${blockedClass}">
-      <!-- ท่อซ้าย -->
       <rect x="0" y="12" width="10" height="6" rx="2" fill="#0d9488"/>
-      <!-- ท่อขวา -->
       <rect x="34" y="12" width="10" height="6" rx="2" fill="#0d9488"/>
-      <!-- ตัวถังวาล์ว -->
       <rect x="9" y="5" width="26" height="20" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/>
-      <!-- แกนลิ้น (hinge line) -->
       <line x1="20" y1="6" x2="20" y2="24" stroke="#0f766e" stroke-width="2.5" stroke-linecap="round"/>
-      <!-- แผ่นลิ้น (disc) — สามเหลี่ยม ชี้ทางขวา = อนุญาต -->
       <polygon points="20,8 33,15 20,22" fill="#0d9488" opacity="0.9"/>
-      <!-- ลูกศรทิศทางน้ำ (เคลื่อนไหว) -->
       <g class="${arrowAni}">
         <polygon points="35,13 41,15 35,17" fill="#14b8a6"/>
         <line x1="33" y1="15" x2="39" y2="15" stroke="#14b8a6" stroke-width="1.5" stroke-linecap="round"/>
       </g>
-      <!-- X กั้นย้อน (ด้านซ้าย) -->
       <line x1="11" y1="10" x2="17" y2="20" stroke="#ef4444" stroke-width="2" stroke-linecap="round" class="cv-cross"/>
       <line x1="17" y1="10" x2="11" y2="20" stroke="#ef4444" stroke-width="2" stroke-linecap="round" class="cv-cross"/>
     </svg>`;
@@ -328,36 +326,19 @@ function log(t){ const el=document.getElementById('st-msg'); if(el) el.innerText
 
 function initMap(){
   map=L.map('map',{zoomControl:false,attributionControl:false,doubleClickZoom:false}).setView([14.4069,102.8686],15);
-  // ใช้ tile providers หลายตัวเรียงลำดับ fallback — ทำงานได้แม้เปิดจาก file://
   const tileLayers = [
-    {
-      name: 'CartoDB Voyager',
-      url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-      opts: { maxZoom:19, subdomains:'abcd',
-              attribution:'&copy; <a href="https://carto.com/">CARTO</a>' }
-    },
-    {
-      name: 'Esri World Street Map',
-      url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',
-      opts: { maxZoom:19,
-              attribution:'Tiles &copy; Esri' }
-    },
-    {
-      name: 'CartoDB Light',
-      url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png',
-      opts: { maxZoom:19, subdomains:'abcd',
-              attribution:'&copy; <a href="https://carto.com/">CARTO</a>' }
-    }
+    { name: 'CartoDB Voyager', url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', opts: { maxZoom:19, subdomains:'abcd' } },
+    { name: 'Esri World Street Map', url: 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}', opts: { maxZoom:19 } },
+    { name: 'CartoDB Light', url: 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', opts: { maxZoom:19, subdomains:'abcd' } }
   ];
 
-  // เลือก provider แรก แล้ว fallback อัตโนมัติถ้าโหลดไม่ได้
   let currentTileIdx = 0;
   function addTileLayer(idx) {
     if(idx >= tileLayers.length) return;
     const t = tileLayers[idx];
     const layer = L.tileLayer(t.url, t.opts);
     layer.on('tileerror', () => {
-      if(currentTileIdx === idx) {          // ยังไม่ได้ fallback ไปแล้ว
+      if(currentTileIdx === idx) {
         currentTileIdx = idx + 1;
         map.removeLayer(layer);
         addTileLayer(currentTileIdx);
@@ -389,59 +370,39 @@ async function onMapClick(e){
       if(d.elevation&&d.elevation[0]!==null) el=d.elevation[0];
     }catch(err){}
     const id=mode[0].toUpperCase()+Date.now().toString().slice(-4);
-    nodes.push({id,type:mode,lat:e.latlng.lat,lng:e.latlng.lng,el,dem:0,head:0,p:0,status:'OPEN',setting:15.0,waterLevel:20,pumpHead:30,pumpFlow:100,prvSize:100,openPercent:100,cvFlowAngle:0,cvBlocked:false});
+    // Added pumpShutoff for Pump Curve
+    nodes.push({id,type:mode,lat:e.latlng.lat,lng:e.latlng.lng,el,dem:0,head:0,p:0,status:'OPEN',setting:15.0,waterLevel:20,pumpShutoff:45,pumpHead:30,pumpFlow:100,prvSize:100,openPercent:100,cvFlowAngle:0,cvBlocked:false});
     render(); log("Ready");
   }
 }
 
-// ============================================================
-//  CHECK VALVE: คำนวณมุมหมุนและสถานะ blocked
-// ============================================================
 function computeCheckValveAngles(){
-  if(!isCalculated) return;
   nodes.filter(n=>n.type==='check_valve').forEach(cv=>{
     const adjLinks=links.filter(l=>l.s===cv.id||l.e===cv.id);
-    if(adjLinks.length===0){ cv.cvFlowAngle=0; cv.cvBlocked=false; return; }
-
-    // หา link ที่มี |flow| มากที่สุด เพื่อพิจารณาทิศทาง
-    const dominant=adjLinks.reduce((a,b)=>Math.abs(a.flow||0)>Math.abs(b.flow||0)?a:b);
-    const netFlow=dominant.flow||0;
-
-    // ฝั่ง upstream ของ check_valve = node ที่อยู่ก่อน cv ในทิศทางไหลปกติ
-    // ถ้า flow>0 แสดงว่าน้ำไหล s→e → upstream=s, downstream=e
-    const upstreamId=(dominant.s===cv.id)?dominant.e:dominant.s; // node ด้านที่น้ำมา
-    const downstreamId=(dominant.s===cv.id)?dominant.s:dominant.e;
-
-    // ทิศทางน้ำ "ปกติ" (ที่วาล์วอนุญาต) = จาก upstream ออก downstream
-    const upNode=nodes.find(x=>x.id===upstreamId);
-    const dnNode=nodes.find(x=>x.id===downstreamId);
-
-    let angleDeg=0;
-    if(upNode&&dnNode){
-      const dx=dnNode.lng-upNode.lng;
-      const dy=dnNode.lat-upNode.lat;
-      // แผนที่: lat บนจอคือ "บน" แต่ lat ค่าเพิ่มขึ้นทางเหนือ ต้องกลับ dy
-      angleDeg=Math.atan2(-dy,dx)*(180/Math.PI);
+    if(adjLinks.length===0){ cv.cvFlowAngle=0; return; }
+    
+    // หาว่าท่อไหนน้ำเข้า (e ชี้เข้า cv) และท่อไหนน้ำออก (s ชี้ออกจาก cv)
+    const inbound = adjLinks.find(l => l.e === cv.id);
+    const outbound = adjLinks.find(l => l.s === cv.id);
+    
+    let upNode, dnNode;
+    if (inbound && outbound) {
+      upNode = nodes.find(n => n.id === inbound.s);
+      dnNode = nodes.find(n => n.id === outbound.e);
+    } else if (adjLinks.length > 0) {
+      // กรณีท่อมีไม่ครบหรือต่อแปลกๆ
+      upNode = nodes.find(n => n.id === (adjLinks[0].s === cv.id ? adjLinks[0].e : adjLinks[0].s));
+      dnNode = nodes.find(n => n.id === (adjLinks[1]?.s === cv.id ? adjLinks[1].e : adjLinks[1]?.s)) || upNode;
     }
-
-    // blocked = น้ำกำลังพยายามไหลย้อน (flow ทิศตรงข้ามกับ "อนุญาต")
-    // คำนวณจาก sign ของ flow ในท่อระหว่าง upstream→cv
-    const inboundLink=links.find(l=>(l.s===upstreamId&&l.e===cv.id)||(l.e===upstreamId&&l.s===cv.id));
-    let blocked=false;
-    if(inboundLink){
-      const flowSign=(inboundLink.s===upstreamId)?1:-1; // flow บวก = ไหลจาก s→e
-      const actualDir=(inboundLink.flow||0)*flowSign;
-      blocked=actualDir<-0.001; // น้ำพยายามไหลย้อนกลับเข้า upstream
+    
+    if (upNode && dnNode) {
+      const dx = dnNode.lng - upNode.lng;
+      const dy = dnNode.lat - upNode.lat;
+      cv.cvFlowAngle = Math.atan2(-dy, dx) * (180/Math.PI);
     }
-
-    cv.cvFlowAngle=angleDeg;
-    cv.cvBlocked=blocked;
   });
 }
 
-// ============================================================
-//  RENDER
-// ============================================================
 function getNodeIcon(n){
   let dotColor=n.dem>0?'#dc2626':'#3b82f6';
   let isLowP=false;
@@ -493,7 +454,7 @@ function render(){
       tip+=`<span style="color:#ef4444;"><b>📉 HL:</b> ${(l.hl||0).toFixed(3)} m</span>`;
     }
     tip+=`</div>`;
-    poly.bindTooltip(tip,{permanent:showRes,direction:'center',className:'custom-eng-tooltip'});
+    poly.bindTooltip(tip,{permanent:showRes,direction:'top',offset:[0,-6],className:'custom-eng-tooltip'});
     poly.on('click',(e)=>{
       L.DomEvent.stopPropagation(e);
       ctxPipeId=l.id; ctxLatLng=e.latlng;
@@ -505,7 +466,6 @@ function render(){
     mapItems.p[l.id]=poly;
   });
 
-  // คำนวณมุม check_valve ก่อน render markers
   computeCheckValveAngles();
 
   nodes.forEach(n=>{
@@ -530,7 +490,10 @@ function render(){
         nc+=`<span style="color:#0d9488;"><b>🧭 ทิศน้ำ:</b> ${(n.cvFlowAngle||0).toFixed(0)}°</span><br>`;
       }
     } else if(n.type==='pump'){
-      nc+=`<span style="color:#ef4444;"><b>⚡ Pump:</b> ${n.pumpHead||30} m head</span><br>`;
+      // Update Tooltip to show Actual Operating Head calculated by Pump Curve
+      let actH = isCalculated ? (n.head - n.el).toFixed(2) : (n.pumpHead||30);
+      nc+=`<span style="color:#ef4444;"><b>⚡ Op. Head:</b> ${actH} m</span><br>`;
+      nc+=`<span style="color:#94a3b8;font-size:9px;">Curve: H₀=${n.pumpShutoff||45}, H_d=${n.pumpHead||30}</span><br>`;
     } else if(n.type==='tank'){
       nc+=`<span style="color:#7c3aed;"><b>🏗 Level:</b> ${n.waterLevel||20} m</span><br>`;
     } else if(n.type==='reservoir'){
@@ -543,7 +506,7 @@ function render(){
       nc+=`<span style="color:#059669;"><b>📊 Head:</b> ${(n.head||0).toFixed(2)} m</span><br>`;
     }
     if(nc.endsWith('<br>')) nc=nc.slice(0,-4);
-    if(nc) m.bindTooltip(`<div style="text-align:left;">${nc}</div>`,{permanent:showRes,direction:'right',className:'custom-eng-tooltip'});
+    if(nc) m.bindTooltip(`<div style="text-align:left;">${nc}</div>`,{permanent:showRes,direction:'right',offset:[24,0],className:'custom-eng-tooltip'});
     m.on('click',(e)=>{
       L.DomEvent.stopPropagation(e);
       document.getElementById('pipe-ctx-menu').classList.add('hidden');
@@ -562,7 +525,7 @@ function insertAcc(type){
   const prefixMap={valve:'V',prv:'PRV',air_valve:'AV',hydrant:'HYD',check_valve:'CV'};
   const nId=(prefixMap[type]||'X')+Date.now().toString().slice(-4);
   const sNode=nodes.find(n=>n.id===pipe.s);
-  nodes.push({id:nId,type,lat:ctxLatLng.lat,lng:ctxLatLng.lng,el:sNode?sNode.el:10,dem:type==='hydrant'?10:0,head:0,p:0,status:'OPEN',setting:15.0,prvSize:pipe.dia||100,openPercent:100,waterLevel:10,pumpHead:30,pumpFlow:100,cvFlowAngle:0,cvBlocked:false});
+  nodes.push({id:nId,type,lat:ctxLatLng.lat,lng:ctxLatLng.lng,el:sNode?sNode.el:10,dem:type==='hydrant'?10:0,head:0,p:0,status:'OPEN',setting:15.0,prvSize:pipe.dia||100,openPercent:100,waterLevel:10,pumpShutoff:45,pumpHead:30,pumpFlow:100,cvFlowAngle:0,cvBlocked:false});
   const half=Math.max(pipe.len/2,0.1);
   const p1={id:'L'+Date.now().toString().slice(-4)+'A',s:pipe.s,e:nId,len:half,dia:pipe.dia,mat:pipe.mat,c:pipe.c,flow:0,vel:0,hl:0};
   const p2={id:'L'+(Date.now()+1).toString().slice(-4)+'B',s:nId,e:pipe.e,len:half,dia:pipe.dia,mat:pipe.mat,c:pipe.c,flow:0,vel:0,hl:0};
@@ -615,14 +578,18 @@ function openProp(id,type){
   if(type==='node'){
     h+=inp('i_el','⛰ Elevation / ระดับดิน MSL (m)',el.el.toFixed(1));
     if(el.type==='check_valve'){
-      // ---- CHECK VALVE PANEL ----
       h+=`<div style="background:#f0fdfa;border:2px solid #99f6e4;border-radius:16px;padding:16px;">
-        <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-          ${TYPE_ICONS.check_valve}
-          <div>
-            <div style="font-size:12px;font-weight:900;color:#0f766e;">เช็ควาล์ว (Check Valve)</div>
-            <div style="font-size:10px;color:#0d9488;">ป้องกันน้ำไหลย้อนกลับ</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;">
+          <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+            ${TYPE_ICONS.check_valve}
+            <div>
+              <div style="font-size:12px;font-weight:900;color:#0f766e;">เช็ควาล์ว (Check Valve)</div>
+              <div style="font-size:10px;color:#0d9488;">ป้องกันน้ำไหลย้อนกลับ</div>
+            </div>
           </div>
+          <button onclick="flipCV('${el.id}')" style="background:white;border:1.5px solid #0d9488;color:#0f766e;padding:6px 10px;border-radius:8px;font-size:10px;font-weight:800;cursor:pointer;display:flex;align-items:center;gap:4px;box-shadow:0 2px 4px rgba(0,0,0,0.05);" onmouseover="this.style.background='#ccfbf1'" onmouseout="this.style.background='white'">
+             <i class="fas fa-exchange-alt"></i> สลับทิศ
+          </button>
         </div>
         <div style="background:white;border-radius:12px;padding:12px;border:1px solid #99f6e4;font-size:11px;color:#134e4a;line-height:1.7;">
           <b>หลักการทำงาน:</b><br>
@@ -646,7 +613,7 @@ function openProp(id,type){
       const imf=((Math.PI*Math.pow(cps/2000,2))*2.5*3600).toFixed(1);
       h+=`<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:14px;padding:14px;"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;"><div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;">⬇️ Target Pressure (m)</label><input id="i_set" type="number" step="0.1" value="${el.setting||15}" class="eng-input" style="border-color:#fed7aa;background:white;"></div><div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;">🔧 PRV Size</label><select id="i_prv_size" class="eng-input" style="border-color:#fed7aa;background:white;" onchange="updatePRVInfo()">${pso}</select></div></div><p style="font-size:10px;color:#78350f;">💡 ขนาด <b id="prv_sz_lbl">${cps}</b> mm → Flow สูงสุด ~<b id="prv_max_flow">${imf}</b> m³/h</p></div>`;
     } else if(el.type==='pump'){
-      h+=`<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('i_pump_head','⚡ Pump Head (m)',el.pumpHead||30)}${inp('i_pump_flow','💧 Design Flow (m³/h)',el.pumpFlow||100,'number','1')}</div>`;
+      h+=`<div style="display:grid;grid-template-columns:1fr;gap:10px;margin-bottom:10px;">${inp('i_pump_shutoff','⚡ Shutoff Head (H max at Q=0)',el.pumpShutoff||45)}</div><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">${inp('i_pump_head','⚡ Design Head (m)',el.pumpHead||30)}${inp('i_pump_flow','💧 Design Flow (m³/h)',el.pumpFlow||100,'number','1')}</div><div style="font-size:10px;color:#64748b;margin-top:8px;background:#f8fafc;padding:8px;border-radius:8px;border:1px dashed #cbd5e1;">💡 <b>ระบบ Pump Curve อัตโนมัติ:</b><br>H = H<sub>shutoff</sub> - r·Q²<br>แรงดันจะลดลงเมื่อ Flow มากขึ้นตามความเป็นจริง</div>`;
     } else if(['reservoir','tank'].includes(el.type)){
       h+=inp('i_wl','💧 Water Level (m)',el.waterLevel||20);
     } else if(!['valve','prv','air_valve','hydrant','check_valve'].includes(el.type)){
@@ -675,6 +642,7 @@ async function saveProp(){
     if(v('i_valve_open')!==null){el.openPercent=parseInt(v('i_valve_open'));el.status=el.openPercent===0?'CLOSED':'OPEN';}
     if(v('i_wl')!==null) el.waterLevel=parseFloat(v('i_wl'))||0;
     if(v('i_dem')!==null) el.dem=parseFloat(v('i_dem'))||0;
+    if(v('i_pump_shutoff')!==null) el.pumpShutoff=parseFloat(v('i_pump_shutoff'))||45; // Save Pump Curve Data
     if(v('i_pump_head')!==null) el.pumpHead=parseFloat(v('i_pump_head'))||30;
     if(v('i_pump_flow')!==null) el.pumpFlow=parseFloat(v('i_pump_flow'))||100;
   } else {
@@ -686,6 +654,20 @@ async function saveProp(){
   closeProp(); await calculate(); render();
 }
 function closeProp(){ document.getElementById('propPanel').classList.add('hidden'); selId=null; }
+
+function flipCV(id) {
+  // สลับ Start (s) และ End (e) ของท่อที่ต่อกับ Check Valve ตัวนี้ทั้งหมด
+  links.forEach(l => {
+    if (l.s === id || l.e === id) {
+      const tmp = l.s; l.s = l.e; l.e = tmp;
+    }
+  });
+  const cv = nodes.find(n => n.id === id);
+  if(cv) cv.cvBlocked = false; // เคลียร์สถานะถูกบล็อกเดิมทิ้ง
+  isCalculated = false; // สั่งให้ Flow ต้องถูกคำนวณใหม่
+  render(); // โหลดกราฟิกและลูกศรใหม่
+  openProp(id, 'node'); // รีเฟรชหน้าต่าง properties
+}
 
 async function deleteEl(){
   nodes=nodes.filter(n=>n.id!==selId);
@@ -756,6 +738,66 @@ function checkUrlHash(){
     if(ds){const data=JSON.parse(ds);if(data&&data.nodes&&data.links){nodes=data.nodes;links=data.links;if(nodes.length>0&&map)map.setView([nodes[0].lat,nodes[0].lng],16);calculate().then(()=>render());window.history.replaceState(null,null,window.location.pathname);}}
   }catch(e){console.warn(e);}
 }
+
+function exportCSV() {
+  if(nodes.length === 0) return alert("ไม่มีข้อมูลที่จะส่งออก");
+  let csv = "\uFEFF"; // ใส่ BOM เพื่อให้รองรับภาษาไทยเวลาเปิดด้วย Excel
+  
+  csv += "--- NODE RESULTS (ผลการคำนวณจุดต่อ/อุปกรณ์) ---\n";
+  csv += "ID,Type,Elevation(m),Base Demand(m3/h),Total Head(m),Pressure(bar),Notes\n";
+  nodes.forEach(n => {
+    let p_bar = (isCalculated && !['reservoir','tank'].includes(n.type)) ? (n.p||0)/10.197 : 0;
+    let note = n.type==='valve' ? `Valve Open: ${n.openPercent||0}%` : (n.type==='pump' ? `Operating Head: ${isCalculated ? (n.head-n.el).toFixed(2) : (n.pumpHead||0)}m` : '');
+    csv += `${n.id},${TYPE_NAMES[n.type]||n.type},${n.el.toFixed(2)},${(n.dem||0).toFixed(2)},${(n.head||0).toFixed(2)},${p_bar.toFixed(2)},${note}\n`;
+  });
+
+  csv += "\n--- PIPE RESULTS (ผลการคำนวณเส้นท่อ) ---\n";
+  csv += "Pipe ID,Start Node,End Node,Length(m),Diameter(mm),C-Factor,Flow(m3/h),Velocity(m/s),Headloss(m)\n";
+  links.forEach(l => {
+    csv += `${l.id},${l.s},${l.e},${l.len.toFixed(1)},${l.dia},${l.c},${Math.abs(l.flow||0).toFixed(2)},${Math.abs(l.vel||0).toFixed(2)},${(l.hl||0).toFixed(3)}\n`;
+  });
+
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (document.getElementById('pjName').value || "pipe_project") + "_Calc_Results.csv";
+  a.click();
+}
+
+function exportJSON() {
+  if(nodes.length === 0) return alert("ไม่มีข้อมูลที่จะบันทึก");
+  const data = JSON.stringify({nodes, links}, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = (document.getElementById('pjName').value || "pipe_project") + "_Backup.json";
+  a.click();
+}
+
+function importFile(event) {
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const data = JSON.parse(e.target.result);
+      if(data.nodes && data.links) {
+        nodes = data.nodes; links = data.links;
+        if(nodes.length > 0 && map) map.setView([nodes[0].lat, nodes[0].lng], 16);
+        calculate().then(()=>render());
+        document.getElementById('pjName').value = file.name.replace('.json','').replace('_Backup','');
+        alert("✅ เปิดไฟล์โครงการสำเร็จ พร้อมวิเคราะห์และแก้ไขต่อได้ทันที");
+      }
+    } catch(err) {
+      alert("❌ รูปแบบไฟล์ไม่ถูกต้อง");
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // รีเซ็ต input
+}
+
 function toggleRes(){
   showRes=!showRes;
   const btn=document.getElementById('btn-res'),lbl=document.getElementById('btn-res-label');
@@ -778,7 +820,7 @@ function locate(){
 }
 
 // ============================================================
-//  CALCULATION ENGINE (Hazen-Williams + Check Valve enforcement)
+//  CALCULATION ENGINE (Hazen-Williams + PUMP CURVE + CV)
 // ============================================================
 function calculate(){
   log("กำลังวิเคราะห์ระบบ...");
@@ -788,7 +830,6 @@ function calculate(){
       const sources=nodes.filter(n=>['reservoir','tank','pump'].includes(n.type));
       if(sources.length===0){log("ไม่มี Source — ข้าม");resolve();return;}
 
-      // BFS connectivity (check_valve ถือเป็น node ปกติ ยังให้น้ำผ่านได้สองทาง ใน solver — แต่หลัง solve จะ enforce)
       const adj={};
       nodes.forEach(n=>adj[n.id]=[]);
       links.forEach(l=>{
@@ -801,12 +842,27 @@ function calculate(){
       const conn=new Set();const q=[...sources.map(s=>s.id)];q.forEach(id=>conn.add(id));
       let hi=0;while(hi<q.length){const c=q[hi++];(adj[c]||[]).forEach(nb=>{if(!conn.has(nb)){conn.add(nb);q.push(nb);}});}
 
-      sources.forEach(s=>{s.head=s.el+(s.type==='pump'?(s.pumpHead||50):(s.waterLevel||10));});
+      // Initial Head Setup & Pump Curve Coefficient Calculation
+      sources.forEach(s=>{
+        if (s.type === 'pump') {
+          // คำนวณความต้านทาน R ของปั๊ม: H = H_shutoff - R * Q^2
+          s.pumpShutoff = s.pumpShutoff || (s.pumpHead * 1.5) || 45;
+          let h_diff = s.pumpShutoff - s.pumpHead;
+          if(h_diff <= 0) h_diff = 1; // กัน R ติดลบ
+          s.pumpR = h_diff / Math.pow(s.pumpFlow || 100, 2);
+          
+          s.head = s.el + s.pumpShutoff; // เริ่มต้นด้วย Shutoff Head เผื่อไว้ให้ดันน้ำ
+        } else {
+          s.head = s.el + (s.waterLevel || 10);
+        }
+      });
       nodes.forEach(n=>{if(!['reservoir','tank','pump'].includes(n.type))n.head=conn.has(n.id)?n.el+10:n.el;});
 
       // ---- Iterative solver ----
       for(let iter=0;iter<1000;iter++){
         let maxR=0;
+
+        // 1. Solve Junctions (Newton-Raphson method)
         nodes.forEach(n=>{
           if(['reservoir','tank','pump'].includes(n.type)||!conn.has(n.id)) return;
           let sQ=0,sDq=0;
@@ -819,15 +875,73 @@ function calculate(){
             const th=Math.max(Math.min(pn,pnb)/100.0,0.01);
             const K=(10.67*len/(Math.pow(C,1.852)*Math.pow(D,4.8704)))*Math.pow(1/th,2);
             const dH=nb.head-n.head,sign=dH>=0?1:-1,aH=Math.abs(dH),expQ=1/1.852;
+            
+            // --- STRICT CHECK VALVE LOGIC ---
+            // ป้องกันสมการดูดน้ำย้อนศรผ่าน Check Valve ในขณะ Iteration
+            let isBlocked = false;
+            if (n.type === 'check_valve' || nb.type === 'check_valve') {
+              if (l.s === nb.id && sign === -1) isBlocked = true; // น้ำพยายามไหลจาก e ไป s
+              if (l.s === n.id && sign === 1) isBlocked = true;   // น้ำพยายามไหลจาก e ไป s
+            }
+
             let Q=0,dQdH=0;
-            if(aH>1e-6){Q=sign*Math.pow(aH/K,expQ);dQdH=expQ*Math.abs(Q)/aH;}
+            if(aH>1e-6 && !isBlocked){
+              Q=sign*Math.pow(aH/K,expQ);
+              dQdH=expQ*Math.abs(Q)/aH;
+            }
             sQ+=Q;sDq+=dQdH;
           });
           const dem=(n.dem||0)/3600,res=sQ-dem;
           if(Math.abs(res)>maxR) maxR=Math.abs(res);
-          if(sDq>1e-10){let dh=Math.max(-10,Math.min(10,res/sDq));n.head+=dh;}
+          if(sDq>1e-10){
+            let dh=Math.max(-10,Math.min(10,res/sDq));n.head+=dh;
+          } else if (res < -1e-6) {
+            // โหนดขาดน้ำ (Starved Node) เพราะวาล์วปิดกั้น หรือไม่มีน้ำมาเติม
+            // บังคับให้แรงดันร่วงลงจนเหลือ 0 (Head = Elevation)
+            n.head = Math.max(n.el, n.head - 2); 
+          }
           if(n.type==='prv'){const th=n.el+(n.setting||15);if(n.head>th)n.head=n.head*0.3+th*0.7;}
         });
+
+        // 2. Solve Pumps Dynamically (Pump Curve)
+        nodes.forEach(p=>{
+          if(p.type!=='pump'||!conn.has(p.id)) return;
+          let netFlowOut_m3s = 0;
+          links.filter(l=>l.s===p.id||l.e===p.id).forEach(l=>{
+            const nbId=l.s===p.id?l.e:l.s, nb=nodes.find(x=>x.id===nbId); if(!nb) return;
+            const pn=p.openPercent??(p.status==='CLOSED'?0:100);
+            const pnb=nb.openPercent??(nb.status==='CLOSED'?0:100);
+            if(pn===0||pnb===0) return;
+            const D=l.dia/1000,C=l.c||140,len=Math.max(l.len,0.1);
+            const th=Math.max(Math.min(pn,pnb)/100.0,0.01);
+            const K=(10.67*len/(Math.pow(C,1.852)*Math.pow(D,4.8704)))*Math.pow(1/th,2);
+            const dH=p.head-nb.head, sign=dH>=0?1:-1, aH=Math.abs(dH);
+            
+            let isBlocked = false;
+            if (p.type === 'check_valve' || nb.type === 'check_valve') {
+               if (l.s === nb.id && sign === 1) isBlocked = true;
+               if (l.s === p.id && sign === -1) isBlocked = true;
+            }
+
+            if(aH>1e-6 && !isBlocked){
+              let Q_link = sign * Math.pow(aH/K, 1/1.852);
+              netFlowOut_m3s += Q_link; 
+            }
+          });
+          
+          let Q_out_m3h = netFlowOut_m3s * 3600;
+          if (Q_out_m3h < 0) Q_out_m3h = 0; // ป้องกันปั๊มติดลบ (ทำงานคล้าย Check Valve ในตัว)
+          
+          // คำนวณ Head ปัจจุบันจาก Pump Curve
+          let addedHead = p.pumpShutoff - (p.pumpR * Math.pow(Q_out_m3h, 2));
+          if (addedHead < 0) addedHead = 0; // ไม่ยอมให้ Head ปั๊มต่ำกว่า 0 ม.
+          
+          let targetHead = p.el + addedHead;
+          
+          // ใช้ Damping Factor เพื่อไม่ให้ Solver แกว่งตัวรุนแรง (Oscillation)
+          p.head = (p.head * 0.85) + (targetHead * 0.15);
+        });
+
         if(maxR<1e-6) break;
       }
 
@@ -835,6 +949,10 @@ function calculate(){
       let totD=0,totS=0;
       const jns=nodes.filter(n=>!['reservoir','tank','pump'].includes(n.type));
       let minP=jns.length>0?Infinity:0;
+      
+      // Reset CV block status before final check
+      nodes.filter(n=>n.type==='check_valve').forEach(cv => cv.cvBlocked = false);
+
       nodes.forEach(n=>{n.p=Math.max(0,n.head-n.el);if(n.dem)totD+=n.dem;if(!['reservoir','tank','pump'].includes(n.type)&&n.p<minP)minP=n.p;});
 
       links.forEach(l=>{
@@ -844,7 +962,20 @@ function calculate(){
         const p2=n2.openPercent??(n2.status==='CLOSED'?0:100);
         const dH=n1.head-n2.head,aH=Math.abs(dH),fd=dH>=0?1:-1;
         const iso=!conn.has(n1.id)||!conn.has(n2.id);
-        if(p1===0||p2===0||iso){l.flow=0;l.vel=0;l.hl=(p1===0||p2===0)?aH:0;}
+        
+        // Final Check Valve Enforcement
+        let isBlocked = false;
+        if (n1.type === 'check_valve' || n2.type === 'check_valve') {
+           if (dH < 0) { // น้ำพยายามไหลย้อนจาก e ไป s
+               isBlocked = true;
+               if (n1.type === 'check_valve') n1.cvBlocked = true;
+               if (n2.type === 'check_valve') n2.cvBlocked = true;
+           }
+        }
+
+        if(p1===0||p2===0||iso||isBlocked){
+          l.flow=0;l.vel=0;l.hl=(p1===0||p2===0||isBlocked)?aH:0;
+        }
         else{
           const D=l.dia/1000,C=l.c||140,len=Math.max(l.len,0.1);
           const th=Math.max(Math.min(p1,p2)/100.0,0.01);
@@ -856,23 +987,6 @@ function calculate(){
           if(s1&&!s2&&dH>0)totS+=Math.abs(l.flow);
           if(s2&&!s1&&dH<0)totS+=Math.abs(l.flow);
         }
-      });
-
-      // ---- CHECK VALVE enforcement ----
-      // หลัง solver: ถ้า flow ย้อนทิศ ให้บังคับ flow=0 + อัปเดต head downstream
-      nodes.filter(n=>n.type==='check_valve'&&conn.has(n.id)).forEach(cv=>{
-        const adjL=links.filter(l=>l.s===cv.id||l.e===cv.id);
-        adjL.forEach(l=>{
-          // กำหนด "ทิศอนุญาต": น้ำไหลเข้า cv จาก l.s เมื่อ l.e===cv.id (flow>0 = s→e ปกติ)
-          // ถ้า link นี้ขา "ออก" จาก cv: l.s===cv.id → flow ควรบวก (ออกทาง e)
-          // ถ้า link นี้ขา "เข้า" cv: l.e===cv.id → flow ควรบวก (เข้า e=cv)
-          // check valve ให้ไหลทิศเดิมที่ solver ได้ แต่ถ้าย้อน → ตัดเป็น 0
-          if(l.flow<-0.001){
-            // flow ย้อน: บังคับ 0 และบันทึกว่า blocked
-            l.flow=0; l.vel=0; l.hl=0;
-            cv.cvBlocked=true;
-          }
-        });
       });
 
       const mp=minP===Infinity?0:minP/10.197;
