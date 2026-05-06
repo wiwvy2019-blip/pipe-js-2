@@ -2272,8 +2272,27 @@ function insertAcc(type) {
   const totalLen = Math.max(pipe.len, 0.1);
   const distToSnap = totalLen * t;          // metres from oldS to snap point
 
-  // Short stub length on each side of the accessory (min 0.5 m, max 5 % of total)
-  const STUB = Math.min(Math.max(totalLen * 0.05, 0.5), 2.0);
+  // ── STUB = screen-pixel-based offset ────────────────────────────────────────
+  // Convert the pipe segment to screen pixels, then set each junction
+  // JUNCTION_PX pixels away from the valve icon on screen.
+  // This guarantees the three icons are always clearly separated regardless
+  // of zoom level, making the valve easy to tap/click without hitting a junction.
+  const JUNCTION_PX = 38; // pixels between junction centre and valve centre
+  let STUB;
+  try {
+    const pt1 = map.latLngToLayerPoint([lat1, lng1]);
+    const pt2 = map.latLngToLayerPoint([lat2, lng2]);
+    const segPx = Math.hypot(pt2.x - pt1.x, pt2.y - pt1.y);
+    // metres per pixel on this segment
+    const mPerPx = segPx > 0.1 ? totalLen / segPx : totalLen / 200;
+    STUB = JUNCTION_PX * mPerPx;
+  } catch(e) {
+    // Fallback: 15 % of pipe length, capped 1–20 m
+    STUB = Math.min(Math.max(totalLen * 0.15, 1.0), 20.0);
+  }
+  // Safety: never more than 30 % of the half-pipe so geometry stays sensible
+  STUB = Math.min(STUB, totalLen * 0.3);
+  STUB = Math.max(STUB, 0.5);
 
   const lenA     = Math.max(distToSnap - STUB, 0.1);          // oldS → JunctionUp
   const lenB     = Math.max(totalLen - distToSnap - STUB, 0.1); // JunctionDn → oldE
