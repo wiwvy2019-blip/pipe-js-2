@@ -2216,8 +2216,28 @@ function openPipeProps() {
 }
 
 /**
- * Insert an accessory node at the midpoint of an existing pipe.
- * Splits the pipe into two halves with identical properties.
+ * Insert an accessory node on an existing pipe.
+ *
+ * EPANET-correct topology:
+ *   oldS ──[pipe A]── JunctionUp ──[short pipe]── AccessoryNode ──[short pipe]── JunctionDn ──[pipe B]── oldE
+ *
+ * Why junction nodes are required:
+ *   - EPANET (and this solver) models accessories as NODES, not pipe segments.
+ *     The accessory's K-factor is applied via pipeResistance() on the two short pipes
+ *     that flank it.  Without flanking junctions the head-loss equation sees the
+ *     accessory connected to full-length pipes, mixing friction loss and minor loss
+ *     in a way that overstates head loss for the entire original pipe length.
+ *   - Adding two junction nodes (one on each side) at a small offset (0.5 m equivalent)
+ *     creates the correct 3-node sub-model:
+ *       Pipe A  : oldS → JunctionUp   (len = dist_to_snap − 0.5 m)
+ *       Short 1 : JunctionUp → AccessoryNode  (len = 0.5 m)
+ *       Short 2 : AccessoryNode → JunctionDn  (len = 0.5 m)
+ *       Pipe B  : JunctionDn → oldE           (len = remaining − 0.5 m)
+ *   - This prevents the solver from treating the *entire* original pipe as the accessory.
+ *
+ * Snap behaviour:
+ *   The accessory (and its flanking junctions) are snapped onto the nearest point on
+ *   the pipe line between oldS and oldE, so the marker always sits on the pipe visually.
  */
 function insertAcc(type) {
   document.getElementById('pipe-ctx-menu').classList.add('hidden');
@@ -2226,48 +2246,116 @@ function insertAcc(type) {
   const pipe = linkMap.get(ctxPipeId);
   if (!pipe) return;
 
-  const prefixes = { valve:'V', prv:'PRV', air_valve:'AV', hydrant:'HYD', check_valve:'CV' };
-  const nId = (prefixes[type] || 'X') + Date.now().toString(36);
   const sNode = nodeMap.get(pipe.s);
+  const eNode = nodeMap.get(pipe.e);
+  if (!sNode || !eNode) return;
 
-  // Create accessory node
-  const n = {
-    id: nId, type, lat: ctxLatLng.lat, lng: ctxLatLng.lng,
-    el: sNode ? sNode.el : 10,
-    baseDem: type === 'hydrant' ? 10 : 0,
-    dem:     type === 'hydrant' ? 10 : 0,
-    head: 0, p: 0, status: 'OPEN', setting: 15.0,
-    prvSize: pipe.dia || 100, openPercent: 100,
-    waterLevel: 10, tankDia: 10, maxLevel: 15, minLevel: 0.5,
-    pumpHead: 30, pumpFlow: 100,
-    pumpStatus: 'ON',
-    pumpSchedule: Array(24).fill(1),
-    cvFlowAngle: 0, cvBlocked: false,
-    history: { head:[], p:[], dem:[], wl:[] }
-  };
-  nodes.push(n);
-  nodeMap.set(nId, n);
-  adjacency.set(nId, new Set());
-  _gridInsert(n);
+  // ── 1. Snap click point onto the pipe line segment ──────────────────────────
+  // Project ctxLatLng onto segment (sNode → eNode) using linear interpolation.
+  const lat1 = sNode.lat, lng1 = sNode.lng;
+  const lat2 = eNode.lat, lng2 = eNode.lng;
+  const dLat = lat2 - lat1, dLng = lng2 - lng1;
+  const segLen2 = dLat * dLat + dLng * dLng; // squared length in degree units
 
-  const half = Math.max(pipe.len / 2, 0.1);
+  let t = 0;
+  if (segLen2 > 1e-18) {
+    t = ((ctxLatLng.lat - lat1) * dLat + (ctxLatLng.lng - lng1) * dLng) / segLen2;
+    t = Math.max(0.1, Math.min(0.9, t)); // keep away from endpoints (10–90 % along pipe)
+  } else {
+    t = 0.5;
+  }
+
+  const snapLat = lat1 + t * dLat;
+  const snapLng = lng1 + t * dLng;
+
+  // ── 2. Compute distances (metres) ───────────────────────────────────────────
+  const totalLen = Math.max(pipe.len, 0.1);
+  const distToSnap = totalLen * t;          // metres from oldS to snap point
+
+  // Short stub length on each side of the accessory (min 0.5 m, max 5 % of total)
+  const STUB = Math.min(Math.max(totalLen * 0.05, 0.5), 2.0);
+
+  const lenA     = Math.max(distToSnap - STUB, 0.1);          // oldS → JunctionUp
+  const lenB     = Math.max(totalLen - distToSnap - STUB, 0.1); // JunctionDn → oldE
+
   const oldS = pipe.s, oldE = pipe.e;
   const dia = pipe.dia, mat = pipe.mat, c = pipe.c;
 
-  // Remove original pipe
+  // ── 3. Interpolate lat/lng for the two junction nodes ───────────────────────
+  // JunctionUp sits STUB metres upstream of the snap point (towards sNode)
+  const tUp = Math.max(t - STUB / totalLen, 0.05);
+  const tDn = Math.min(t + STUB / totalLen, 0.95);
+
+  const jUpLat = lat1 + tUp * dLat, jUpLng = lng1 + tUp * dLng;
+  const jDnLat = lat1 + tDn * dLat, jDnLng = lng1 + tDn * dLng;
+
+  // Elevation: interpolate linearly between sNode and eNode
+  const elSnap = sNode.el + t * (eNode.el - sNode.el);
+  const elUp   = sNode.el + tUp * (eNode.el - sNode.el);
+  const elDn   = sNode.el + tDn * (eNode.el - sNode.el);
+
+  const prefixes = { valve:'V', prv:'PRV', air_valve:'AV', hydrant:'HYD', check_valve:'CV' };
+
+  // Helper to build a bare node object
+  const makeNode = (id, nodeType, lat, lng, el, extra) => ({
+    id, type: nodeType, lat, lng, el,
+    baseDem: 0, dem: 0, head: 0, p: 0,
+    status: 'OPEN', setting: 15.0,
+    prvSize: dia, openPercent: 100,
+    waterLevel: 10, tankDia: 10, maxLevel: 15, minLevel: 0.5,
+    pumpHead: 30, pumpFlow: 100,
+    pumpStatus: 'ON', pumpSchedule: Array(24).fill(1),
+    cvFlowAngle: 0, cvBlocked: false,
+    history: { head:[], p:[], dem:[], wl:[] },
+    ...extra
+  });
+
+  // ── 4. Create JunctionUp ────────────────────────────────────────────────────
+  const jUpId = 'J' + Date.now().toString(36) + 'u';
+  const jUp = makeNode(jUpId, 'junction', jUpLat, jUpLng, elUp);
+  nodes.push(jUp);
+  nodeMap.set(jUpId, jUp);
+  adjacency.set(jUpId, new Set());
+  _gridInsert(jUp);
+
+  // ── 5. Create Accessory node ─────────────────────────────────────────────────
+  const accId = (prefixes[type] || 'X') + (Date.now() + 1).toString(36);
+  const acc = makeNode(accId, type, snapLat, snapLng, elSnap, {
+    baseDem: type === 'hydrant' ? 10 : 0,
+    dem:     type === 'hydrant' ? 10 : 0,
+  });
+  nodes.push(acc);
+  nodeMap.set(accId, acc);
+  adjacency.set(accId, new Set());
+  _gridInsert(acc);
+
+  // ── 6. Create JunctionDn ────────────────────────────────────────────────────
+  const jDnId = 'J' + (Date.now() + 2).toString(36) + 'd';
+  const jDn = makeNode(jDnId, 'junction', jDnLat, jDnLng, elDn);
+  nodes.push(jDn);
+  nodeMap.set(jDnId, jDn);
+  adjacency.set(jDnId, new Set());
+  _gridInsert(jDn);
+
+  // ── 7. Remove original pipe ──────────────────────────────────────────────────
   _removeLink(ctxPipeId);
 
-  // Add two half-pipes
-  const makeHalfLink = (s, e) => {
+  // ── 8. Add four replacement pipe segments ────────────────────────────────────
+  const makeLink = (s, e, len) => {
     const id = _genLinkId();
-    const l = { id, s, e, len:half, dia, mat, c, flow:0, vel:0, hl:0, hf:0, hm:0, re:0, history:{flow:[],vel:[],hl:[],hf:[],hm:[]} };
+    const l = { id, s, e, len: Math.max(len, 0.1), dia, mat, c,
+                flow:0, vel:0, hl:0, hf:0, hm:0, re:0,
+                history:{flow:[],vel:[],hl:[],hf:[],hm:[]} };
     links.push(l);
     linkMap.set(id, l);
     _adjInsert(l);
     return l;
   };
-  makeHalfLink(oldS, nId);
-  makeHalfLink(nId, oldE);
+
+  makeLink(oldS,   jUpId, lenA);   // main pipe upstream half
+  makeLink(jUpId,  accId, STUB);   // short stub upstream of accessory
+  makeLink(accId,  jDnId, STUB);   // short stub downstream of accessory
+  makeLink(jDnId,  oldE,  lenB);   // main pipe downstream half
 
   ctxPipeId = null;
   ctxLatLng = null;
