@@ -268,8 +268,17 @@
 
       <!-- LEGEND -->
       <div style="border-top:1px solid #f1f5f9;padding-top:14px;">
-        <div class="sec-label">🎨 ความเร็วในท่อ (Color Legend)</div>
-        <div style="display:flex;flex-direction:column;gap:5px;">
+        <div class="sec-label">🎨 Legend สีเส้นท่อ</div>
+        <div style="font-size:8.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">ก่อนคำนวณ — ขนาดท่อ</div>
+        <div style="display:flex;flex-direction:column;gap:4px;margin-bottom:10px;">
+          <div class="legend-row"><div class="legend-pip" style="background:#ef4444;"></div>&lt; 100 mm — ท่อเล็กมาก</div>
+          <div class="legend-row"><div class="legend-pip" style="background:#f97316;"></div>100 – 150 mm — ท่อเล็ก</div>
+          <div class="legend-row"><div class="legend-pip" style="background:#f59e0b;"></div>150 – 250 mm — ท่อกลาง</div>
+          <div class="legend-row"><div class="legend-pip" style="background:#22c55e;"></div>250 – 400 mm — ท่อมาตรฐาน</div>
+          <div class="legend-row"><div class="legend-pip" style="background:#60a5fa;"></div>≥ 400 mm — ท่อใหญ่</div>
+        </div>
+        <div style="font-size:8.5px;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px;">หลังคำนวณ — ความเร็วน้ำ</div>
+        <div style="display:flex;flex-direction:column;gap:4px;">
           <div class="legend-row"><div class="legend-pip" style="background:#60a5fa;"></div>&lt; 0.6 m/s — ช้าเกินไป</div>
           <div class="legend-row"><div class="legend-pip" style="background:#22c55e;"></div>0.6 – 1.5 m/s — เหมาะสม ✓</div>
           <div class="legend-row"><div class="legend-pip" style="background:#f59e0b;"></div>1.5 – 2.5 m/s — เร็วเกินไป</div>
@@ -1238,8 +1247,10 @@ async function calculate() {
           for (const { linkId } of adj) {
             const l = linkMap.get(linkId);
             if (!l) continue;
-            const sign = (l.e === tk.id) ? 1 : -1;
-            netFlow_m3h += (l.flow * sign);
+            // l.flow (m³/h): บวก = ไหล s→e, ลบ = ไหล e→s
+            // ถัง: รับน้ำ (net positive = ระดับสูงขึ้น), จ่ายน้ำ (net negative = ระดับลด)
+            if (l.e === tk.id) netFlow_m3h += l.flow;       // ไหลเข้าถัง
+            else               netFlow_m3h -= l.flow;       // ไหลออกจากถัง
           }
         }
         const area = Math.PI * Math.pow((tk.tankDia || 10) / 2, 2);
@@ -1504,7 +1515,7 @@ function _solveHydraulics(hourOfDay) {
     l.hl   = aH;                   // total head loss (m)
     l.hf   = hwResistance(l.len, l.dia || 100, C) * Math.pow(Q_m3s, 1.852); // friction only
     l.hm   = Math.max(0, aH - l.hf); // minor loss residual
-    l.re   = Math.abs(l.vel) * D / 1e-6; // Reynolds number (ν_water ≈ 1×10⁻⁶ m²/s)
+    l.re   = Math.abs(l.vel) * D / 1.004e-6; // Reynolds number (ν_water @ 20°C = 1.004×10⁻⁶ m²/s)
   });
 
   _logger.info(`Solver: ${iters} iters, converged=${converged}, maxRes=${maxRes.toExponential(2)}`);
@@ -1572,17 +1583,21 @@ function updateSummaryUI() {
   let totD = 0, totS = 0, maxHL = 0, maxV = 0;
   nodes.forEach(n => { if ((n.dem || 0) > 0) totD += n.dem; });
 
+  // สมดุลน้ำ: Supply = ผลรวมการไหลออกจาก source nodes (Reservoir/Tank/Pump)
+  // นับเฉพาะ link ที่เชื่อมระหว่าง source กับ non-source เท่านั้น (ไม่นับซ้ำ)
+  const _SRC_SET = new Set(['reservoir','tank','pump']);
+  const _countedSrcLinks = new Set();
   links.forEach(l => {
     const n1 = nodeMap.get(l.s), n2 = nodeMap.get(l.e);
     if (!n1 || !n2) return;
     if (l.hl > maxHL) maxHL = l.hl;
     if (Math.abs(l.vel) > maxV) maxV = Math.abs(l.vel);
-
-    const dH = n1.head - n2.head;
-    const src1 = ['reservoir','tank','pump'].includes(n1.type);
-    const src2 = ['reservoir','tank','pump'].includes(n2.type);
-    if (src1 && !src2 && dH > 0) totS += Math.abs(l.flow);
-    if (src2 && !src1 && dH < 0) totS += Math.abs(l.flow);
+    if (_countedSrcLinks.has(l.id)) return;
+    const src1 = _SRC_SET.has(n1.type);
+    const src2 = _SRC_SET.has(n2.type);
+    // l.flow > 0 หมายถึงน้ำไหล n1→n2, < 0 หมายถึง n2→n1
+    if (src1 && !src2) { totS += Math.max(0, l.flow); _countedSrcLinks.add(l.id); }
+    if (src2 && !src1) { totS += Math.max(0, -l.flow); _countedSrcLinks.add(l.id); }
   });
 
   const jns = nodes.filter(n => !['reservoir','tank','pump'].includes(n.type));
@@ -1634,7 +1649,17 @@ function computeCheckValveAngles() {
 }
 
 function pipeColor(l) {
-  if (!isCalculated) return '#94a3b8';
+  if (!isCalculated) {
+    // ก่อนคำนวณ: แสดงสีตามขนาดเส้นผ่านศูนย์กลางท่อ
+    // แดง = เล็กมาก (<100mm) → ส้ม → เหลือง → เขียว → น้ำเงิน = ใหญ่ (≥400mm)
+    const d = l.dia || 100;
+    if (d < 100)  return '#ef4444'; // แดง — ท่อเล็กมาก (<100mm)
+    if (d < 150)  return '#f97316'; // ส้ม — ท่อเล็ก (100–150mm)
+    if (d < 250)  return '#f59e0b'; // เหลือง — ท่อกลาง (150–250mm)
+    if (d < 400)  return '#22c55e'; // เขียว — ท่อมาตรฐาน (250–400mm)
+    return '#60a5fa';               // น้ำเงิน — ท่อใหญ่ (≥400mm)
+  }
+  // หลังคำนวณ: แสดงสีตามความเร็วตามเดิม
   const v = Math.abs(l.vel || 0);
   if (Math.abs(l.flow) < 0.0001) return '#94a3b8';
   if (v < 0.6)  return '#60a5fa';
@@ -1690,12 +1715,14 @@ function getNodeIcon(n) {
     if (pct < 100)   return `<div class="node-svg-wrap">${SVG.valve_partial}</div>`;
     return `<div class="node-svg-wrap">${SVG.valve_open}</div>`;
   }
-  return `<div class="${wrapClass}" style="display:flex;align-items:center;justify-content:center;"><div style="width:16px;height:16px;background:${dotColor};border:2.5px solid white;border-radius:50%;box-shadow:0 2px 6px rgba(0,0,0,0.3);"></div></div>`;
+  return `<div class="${wrapClass}" style="display:flex;align-items:center;justify-content:center;"><div style="width:12px;height:12px;background:${dotColor};border:2px solid white;border-radius:50%;box-shadow:0 1px 4px rgba(0,0,0,0.35);"></div></div>`;
 }
 
 function buildPipeTooltip(l) {
   let tip = `<div style="text-align:left;font-family:var(--mono);">`;
-  tip += `<b>Dia:</b> ${l.dia}mm  <b>C:</b> ${l.c}<br>`;
+  const _d = l.dia || 100;
+  const _szLabel = _d < 100 ? '🔴 <100mm' : _d < 150 ? '🟠 100-150mm' : _d < 250 ? '🟡 150-250mm' : _d < 400 ? '🟢 250-400mm' : '🔵 ≥400mm';
+  tip += `<b>Dia:</b> ${l.dia}mm ${_szLabel}  <b>C:</b> ${l.c}<br>`;
   tip += `<b>L:</b> ${l.len.toFixed(1)}m<br>`;
   if (isCalculated) {
     tip += `<b style="color:#2563eb;">Q:</b> ${Math.abs(l.flow || 0).toFixed(2)} m³/h<br>`;
@@ -1830,9 +1857,12 @@ function render() {
   // Nodes: update or create Leaflet markers
   nodes.forEach(n => {
     const iconHtml = getNodeIcon(n);
+    // Junction dots use a fixed small size; equipment icons use their natural size.
+    // All sizes are in CSS pixels (screen-space), so they never grow when zooming out.
     const isSz = n.type==='tank'?[40,44]:n.type==='reservoir'?[40,36]:n.type==='pump'?[40,40]:
                  n.type==='hydrant'?[32,38]:n.type==='air_valve'?[32,36]:
-                 n.type==='check_valve'?[46,32]:[30,30];
+                 n.type==='check_valve'?[46,32]:
+                 (n.type==='junction'||n.type==='valve'||n.type==='prv')?[22,22]:[22,22];
     const iconObj = L.divIcon({ className:'', html:iconHtml, iconSize:isSz, iconAnchor:[isSz[0]/2, isSz[1]/2] });
     const nc = buildNodeTooltip(n);
 
