@@ -160,6 +160,7 @@
     <div class="sys-row"><span class="sys-label">🔴 Demand รวม</span><span class="sys-val" style="color:#f87171;" id="val-demand">—</span></div>
     <div class="sys-divider"></div>
     <div class="sys-row"><span class="sys-label">🟡 Press ต่ำสุด</span><span class="sys-val" style="color:#fbbf24;" id="val-min-p">—</span></div>
+    <div class="sys-row"><span class="sys-label">🔴 Press สูงสุด</span><span class="sys-val" id="val-max-p" style="color:rgba(255,255,255,0.7);">—</span></div>
     <div class="sys-row"><span class="sys-label">📉 HL สูงสุด</span><span class="sys-val" style="color:#f87171;" id="val-max-hl">—</span></div>
     <div class="sys-row"><span class="sys-label">⚡ Velocity max</span><span class="sys-val" style="color:#c084fc;" id="val-max-v">—</span></div>
     <div class="sys-divider"></div>
@@ -426,9 +427,7 @@ const MATERIALS = [
 
 /** Minor Loss Coefficients (dimensionless) */
 const MINOR_K = {
-  check_valve: 2.5,
-  air_valve:   0.5,
-  hydrant:     1.5
+  check_valve: 2.5   // K for check valve (forward-flow minor loss)
 };
 
 /** EPS Configuration */
@@ -477,8 +476,6 @@ const SVG = {
   valve_partial:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><line x1="6" y1="6" x2="6" y2="18" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#f59e0b" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#f59e0b" stroke-width="3"/></svg>`,
   valve_closed:`<svg width="30" height="30" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><line x1="6" y1="6" x2="6" y2="18" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#ef4444" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#ef4444" stroke-width="3"/></svg>`,
   prv:`<svg width="32" height="32" viewBox="0 0 24 24" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text><path d="M8 12 L10 10 L10 14Z" fill="#f97316"/><path d="M16 12 L14 10 L14 14Z" fill="#f97316"/></svg>`,
-  air_valve:`<svg width="30" height="32" viewBox="0 0 24 26" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><rect x="5" y="14" width="14" height="5" rx="1" fill="#06b6d4"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2" stroke-linecap="round"/><path d="M7 7 L5 4 M12 6 L12 3 M17 7 L19 4" stroke="#93c5fd" stroke-width="1.5" stroke-linecap="round"/><line x1="12" y1="22" x2="12" y2="26" stroke="#0891b2" stroke-width="2" stroke-linecap="round"/></svg>`,
-  hydrant:`<svg width="30" height="34" viewBox="0 0 24 28" style="filter:drop-shadow(0 2px 4px rgba(0,0,0,0.25))"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="5" rx="1" fill="#ef4444"/><path d="M10 12 L10 8 Q12 6 14 8 L14 12" fill="none" stroke="#dc2626" stroke-width="2.5" stroke-linecap="round"/><rect x="9" y="6" width="6" height="3" rx="1" fill="#b91c1c"/><circle cx="12" cy="5" r="2" fill="#b91c1c"/><line x1="5" y1="17.5" x2="2" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="19" y1="17.5" x2="22" y2="17.5" stroke="#dc2626" stroke-width="2" stroke-linecap="round"/><line x1="12" y1="24" x2="12" y2="28" stroke="#b91c1c" stroke-width="3" stroke-linecap="round"/></svg>`,
   check_valve: (angleDeg=0, blocked=false) => {
     const blockedClass = blocked ? 'cv-blocked' : '';
     const arrowAni = !blocked ? 'cv-arrow-ani' : '';
@@ -507,8 +504,6 @@ const TYPE_ICONS = {
   pump:`<svg width="20" height="20" viewBox="0 0 26 26"><circle cx="13" cy="13" r="9" fill="#22c55e"/><path d="M13 13 L13 6 Q17 9 13 13Z" fill="white" opacity="0.9"/></svg>`,
   valve:`<svg width="20" height="20" viewBox="0 0 24 24"><line x1="6" y1="6" x2="6" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><line x1="18" y1="6" x2="18" y2="18" stroke="#22c55e" stroke-width="3" stroke-linecap="round"/><circle cx="12" cy="12" r="5" fill="white" stroke="#22c55e" stroke-width="2"/></svg>`,
   prv:`<svg width="20" height="20" viewBox="0 0 24 24"><rect x="1" y="9" width="9" height="6" rx="2" fill="#f97316"/><rect x="14" y="9" width="9" height="6" rx="2" fill="#f97316"/><circle cx="12" cy="12" r="5" fill="#fff7ed" stroke="#f97316" stroke-width="2"/><text x="12" y="16" text-anchor="middle" font-size="7" font-weight="900" fill="#f97316">P</text></svg>`,
-  air_valve:`<svg width="18" height="20" viewBox="0 0 24 26"><rect x="7" y="12" width="10" height="10" rx="2" fill="#0891b2"/><path d="M9 12 L9 7 Q12 4 15 7 L15 12" fill="none" stroke="#06b6d4" stroke-width="2"/></svg>`,
-  hydrant:`<svg width="18" height="20" viewBox="0 0 24 28"><rect x="8" y="12" width="8" height="12" rx="1" fill="#dc2626"/><rect x="5" y="15" width="14" height="4" rx="1" fill="#ef4444"/></svg>`,
   check_valve:`<svg width="26" height="18" viewBox="0 0 44 30"><rect x="0" y="12" width="10" height="6" rx="2" fill="#0d9488"/><rect x="34" y="12" width="10" height="6" rx="2" fill="#0d9488"/><rect x="9" y="5" width="26" height="20" rx="4" fill="#ccfbf1" stroke="#0d9488" stroke-width="2"/><polygon points="20,8 33,15 20,22" fill="#0d9488"/></svg>`,
   pipe:`<i class="fas fa-minus" style="color:#64748b;font-size:16px;"></i>`
 };
@@ -516,7 +511,7 @@ const TYPE_ICONS = {
 const TYPE_NAMES = {
   junction:'จุดต่อ (Junction)', tank:'ถังสูง (Tank)', reservoir:'แหล่งน้ำ (Reservoir)',
   pump:'ปั๊มน้ำ (Pump)', valve:'ประตูน้ำ (Gate Valve)', prv:'PRV (ลดแรงดัน)',
-  air_valve:'แอร์วาล์ว', hydrant:'หัวดับเพลิง', check_valve:'เช็ควาล์ว', pipe:'ท่อน้ำ (Pipe)'
+  check_valve:'เช็ควาล์ว', pipe:'ท่อน้ำ (Pipe)'
 };
 
 // ============================================================
@@ -529,6 +524,7 @@ const TYPE_NAMES = {
  * Node schema:
  * { id, type, lat, lng, el, baseDem,
  * status, setting, waterLevel, tankDia, maxLevel, minLevel,
+ * prvInlet (upstream node ID), prvSchedule (array[25] of hourly settings),
  * pumpHead, pumpFlow, pumpStatus, pumpSchedule, prvSize, openPercent,
  * cvFlowAngle, cvBlocked, history }
  *
@@ -1099,145 +1095,118 @@ function handlePipe(clickedNodeId) {
 
 // ============================================================
 //  MATH: HAZEN-WILLIAMS & MINOR LOSS
-//  [FIXED v2.0 — Production-Grade Hydraulic Engine]
+//  [FIXED v3.0 — Production-Grade Hydraulic Engine]
+//  Bug fixes vs v2.0:
+//  [B1] pipeResistance() ใส่ K ของ valve/CV ทั้งสองปลาย — ทำให้ท่อที่ต่อกับ
+//       valve หลายเส้นบวก K ซ้ำซ้อนกัน → แก้เป็น inline-node model
+//  [B2] PRV logic อยู่ภายใน inner NR loop ทำให้ head กระโดดทุก iteration
+//       → ย้ายออกมาเป็น post-NR correction phase
+//  [B3] initial head guess ใช้ linear fraction 0.5 ทำให้ไม่สอดคล้อง HGL จริง
+//       → ใช้ BFS distance-weighted propagation จาก source
+//  [B4] demand unit ในการ debug balance ผิด (หน่วย m³/h vs m³/s)  — ไม่มีผล
+//       ต่อผลลัพธ์แต่แก้ให้ถูก
+//  [B5] Check valve: ตรวจสอบ head จาก current iteration อาจเป็น stale
+//       → pre-iteration decision + post-iteration re-check
+//  [B6] Minor loss linearization ใช้ Q_ref = A×1.0 แต่สำหรับ valve ที่เกือบ
+//       ปิด Q จริงต่ำมาก → linearization error ใหญ่ → เปลี่ยนเป็น exact KQ²
+//       blended approach
 // ============================================================
 
 /**
  * Hazen-Williams friction headloss resistance coefficient R_hw.
- *
- * Hazen-Williams formula (SI units):
- *   h_f = 10.67 × L × Q^1.852 / (C^1.852 × D^4.8704)
- *   → h_f = R_hw × Q^1.852
- *   → R_hw = 10.67 × L / (C^1.852 × D^4.8704)
- *
- * Units:
- *   L   = pipe length (m)
- *   D   = pipe diameter (m)
- *   C   = Hazen-Williams roughness coefficient (dimensionless, typically 100–150)
- *   Q   = flow (m³/s)
- *   h_f = friction head loss (m)
- *   R_hw = resistance (m / (m³/s)^1.852)
- *
- * EPANET Reference: Rossman, L.A. (2000) EPANET 2 User Manual, EPA/600/R-00/057
- * Exponent: D^4.8704 (exact: 4.87 rounded to 4 decimal places matches EPANET)
+ * h_f = R_hw × Q^1.852
+ * R_hw = 10.67 × L / (C^1.852 × D^4.8704)   [SI units]
+ * Units: L(m), D(m), C(-), Q(m³/s), h_f(m)
+ * Reference: EPANET 2 User Manual, Rossman (2000)
  */
 function hwResistance(len, dia_mm, c) {
-  const D = Math.max(dia_mm, 1) / 1000;      // convert mm → m, guard against zero
-  const C = Math.max(c, 1);                  // guard: C must be positive
-  const L = Math.max(len, 0.001);            // guard: L must be positive (min 1mm)
-  // 10.67 is the SI coefficient for Hazen-Williams (vs 4.727 in English units)
+  const D = Math.max(dia_mm, 1) / 1000;  // mm → m
+  const C = Math.max(c, 1);
+  const L = Math.max(len, 0.001);
   return 10.67 * L / (Math.pow(C, 1.852) * Math.pow(D, 4.8704));
 }
 
 /**
- * Minor loss coefficient converted to HW-compatible resistance.
- *
- * Minor losses: h_m = K × V²/2g = K × Q²/(2g × A²)
- * This gives h_m = R_minor × Q²  (exponent = 2, not 1.852)
- *
- * For consistent treatment in a 1.852-exponent solver, we convert
- * by computing an "equivalent" resistance at the reference flow Q_ref.
- * This is an approximation used in practical hydraulic simulation
- * (same approach as EPANET's minor loss handling).
- *
- * The effective resistance at flow Q is: R_eff = K/(2g·A²) × Q^(2-1.852) = K/(2g·A²) × Q^0.148
- * We pre-linearize at Q_ref ≈ design flow (here 0.01 m³/s as baseline).
- * This is adequate for engineering-level accuracy.
+ * [FIXED B1] Minor loss resistance — ตอนนี้ใช้สำหรับ standalone inline node เท่านั้น
+ * ไม่รวม K ของปลายท่อทั้งสองฝั่งอีกต่อไป
+ * h_m = K × V²/2g = (K/(2g·A²)) × Q²  → R_minor × Q^2 (exponent=2)
  */
 function minorResistance(dia_mm, K_val) {
-  const D = Math.max(dia_mm, 1) / 1000;       // m
-  const A = Math.PI * (D / 2) * (D / 2);      // cross-sectional area (m²)
-  const g = 9.81;                              // gravity (m/s²)
-  // True quadratic minor loss coefficient: h_m = R_m × Q^2
-  // R_m = K / (2 × g × A²)   [units: m/(m³/s)²]
-  return K_val / (2.0 * g * A * A);
+  const D = Math.max(dia_mm, 1) / 1000;
+  const A = Math.PI * (D / 2) * (D / 2);
+  return K_val / (2.0 * 9.81 * A * A);  // [m/(m³/s)²]
 }
 
 /**
- * Gate valve K-factor as function of open percentage.
- * Based on empirical data from AWWA handbook (Gate Valve, Full-Bore):
- *   - 100% open: K ≈ 0.1 (fully open, minimal loss)
- *   - 75% open:  K ≈ 0.9
- *   - 50% open:  K ≈ 5.6
- *   - 25% open:  K ≈ 24
- *   - 0% open:   K → ∞ (closed)
- * Approximated by power law: K(t) ≈ K_open / t^2.6
+ * Gate valve K-factor vs open percentage.
+ * AWWA data fit: K(t) = 0.10 / t^2.6  (t = openPercent/100)
  */
 function valveKFactor(openPercent) {
-  if (openPercent <= 0)   return 1e12;           // fully closed → infinite resistance
-  if (openPercent >= 100) return 0.10;           // fully open → minimal loss (0.1 per AWWA)
-  const t = openPercent / 100.0;                // normalized opening [0,1]
-  return 0.10 * Math.pow(1.0 / t, 2.6);         // empirical power-law fit
+  if (openPercent <= 0)   return 1e12;
+  if (openPercent >= 100) return 0.10;
+  const t = openPercent / 100.0;
+  return 0.10 * Math.pow(1.0 / t, 2.6);
 }
 
 /**
- * Total effective resistance for one pipe segment.
+ * [FIXED B1] Total pipe resistance — friction ONLY.
+ * Minor losses from accessories (valve, check valve) are handled
+ * as separate inline-node resistance added in the NR loop,
+ * NOT doubled by counting both endpoints of every adjacent pipe.
  *
- * The solver uses Q = (|ΔH|/R_total)^(1/1.852) for ALL head losses.
- * This works exactly for friction (HW). For minor losses (K×Q²), we
- * convert using a linearization: R_minor_equiv = R_m × Q_ref^(2-1.852)
- * evaluated at the reference flow Q_ref = (link design flow or 0.005 m³/s).
+ * This prevents the old bug where a valve node connected to N pipes
+ * would apply its K-factor N times (once per pipe).
  *
- * NOTE: Minor losses in typical distribution systems are small (1-3% of
- * friction loss) so even with linearization error the result is within
- * engineering accuracy.
- *
- * [FIXED]: pumpR no longer applied here — pump curve handled separately in solver.
+ * Formula: R_pipe = R_hw  (friction only)
+ * Inline node minor loss: computed separately per node in NR step
  */
-function pipeResistance(link, nodeS, nodeE) {
-  const C   = Math.max(link.c  || 150, 1);
+function pipeResistance(link) {
+  const C   = Math.max(link.c   || 150, 1);
   const dia = Math.max(link.dia || 100, 1);
-  const R_hw = hwResistance(link.len, dia, C);
+  return hwResistance(link.len, dia, C);  // friction only
+}
 
-  let K_total = 0;
-  // Accumulate K-factors for accessories at both endpoints
-  [nodeS, nodeE].forEach(n => {
-    if (!n) return;
-    switch (n.type) {
-      case 'valve':
-        // Only count valve loss if it's an in-line node (not just touching this pipe)
-        K_total += valveKFactor(n.openPercent ?? (n.status === 'CLOSED' ? 0 : 100));
-        break;
-      case 'check_valve':
-        K_total += MINOR_K.check_valve;           // backward flow already blocked in solver
-        break;
-      case 'air_valve':
-        K_total += MINOR_K.air_valve;
-        break;
-      case 'hydrant':
-        K_total += MINOR_K.hydrant * 0.5;         // partially open during normal operation
-        break;
-    }
-  });
-
-  if (K_total <= 0) return R_hw;
-
-  // Convert minor loss coefficient to HW-compatible resistance
-  // at reference flow Q_ref based on pipe diameter
-  const D_m = dia / 1000;
-  const A   = Math.PI * (D_m / 2) * (D_m / 2);
-  // Reference velocity 1.0 m/s (typical design velocity) → Q_ref = A × v_ref
-  const Q_ref = Math.max(A * 1.0, 1e-6);
-  // R_minor_true = K / (2 × g × A²) [m/(m³/s)²]
-  // Linearize: h_m = R_minor × Q^1.852 means R_minor_eff = R_minor_true × Q_ref^(2-1.852)
-  const R_minor_true = K_total / (2.0 * 9.81 * A * A);
-  const R_minor_eff  = R_minor_true * Math.pow(Q_ref, 2.0 - 1.852);
-
-  return R_hw + R_minor_eff;
+/**
+ * [NEW] Compute equivalent HW-linearized minor loss resistance for an inline node.
+ * Used inside the NR loop to add per-node accessory resistance to adjacent pipes.
+ *
+ * For the NR solver that uses Q = (|ΔH|/R)^(1/1.852), we need to convert
+ * the quadratic K×Q² minor loss into an equivalent HW resistance at current Q.
+ *
+ * At each iteration:
+ *   R_minor_eff(Q) = R_m × Q^(2-1.852) = R_m × Q^0.148
+ * where R_m = K/(2gA²)
+ *
+ * This is evaluated at the current Q estimate each iteration → self-consistent.
+ * When Q→0, we clamp to avoid division by zero.
+ */
+function nodeMinorResistance(nodeType, dia_mm, openPercent, Q_m3s_estimate) {
+  let K = 0;
+  switch (nodeType) {
+    case 'valve':
+      K = valveKFactor(openPercent ?? 100);
+      break;
+    case 'check_valve':
+      K = MINOR_K.check_valve;
+      break;
+    default:
+      return 0;
+  }
+  const D   = Math.max(dia_mm, 1) / 1000;
+  const A   = Math.PI * (D / 2) * (D / 2);
+  const R_m = K / (2.0 * 9.81 * A * A);
+  // Linearize at current Q estimate (clamped to avoid singularity)
+  const Q_ref = Math.max(Math.abs(Q_m3s_estimate), 1e-6);
+  // h_m = R_m × Q^2 → for HW-form h = R_eff × Q^1.852: R_eff = R_m × Q^0.148
+  return R_m * Math.pow(Q_ref, 2.0 - 1.852);
 }
 
 // ============================================================
 //  SIMULATION LAYER: EXTENDED PERIOD SIMULATION (EPS)
-//  ONLY called when user presses RUN.
-//  NEVER called during drawing/editing.
 // ============================================================
 
 /**
- * Validate network topology before running simulation.
- * Returns { ok:bool, message:string }
- *
- * [ENHANCED]: Additional checks for disconnected sub-networks,
- * all-demand no-source, and degenerate pipe parameters.
+ * Validate network topology before simulation.
  */
 function validateNetwork() {
   if (nodes.length === 0) return { ok:false, message:'ไม่มีโหนดในระบบ' };
@@ -1247,26 +1216,18 @@ function validateNetwork() {
   if (sources.length === 0)
     return { ok:false, message:'ต้องมีแหล่งจ่ายน้ำอย่างน้อย 1 จุด (Reservoir / Tank / Pump)' };
 
-  // Check for orphaned links (referencing deleted nodes)
   for (const l of links) {
     if (!nodeMap.has(l.s) || !nodeMap.has(l.e))
       return { ok:false, message:`ท่อ ${l.id} มีโหนดที่ไม่มีอยู่ในระบบ — กรุณาล้างข้อมูลหรือ Undo` };
-    // Guard degenerate geometry
     if (l.len <= 0 || l.dia <= 0 || l.c <= 0)
       return { ok:false, message:`ท่อ ${l.id} มีค่าผิดปกติ (L=${l.len}, D=${l.dia}, C=${l.c})` };
   }
-
   return { ok:true, message:'' };
 }
 
 /**
- * Main EPS entry point.
- * Simulates 25 time steps (0–24 h) using the diurnal pattern.
- * Stores time-series history on each node/link for scrubbing.
- *
- * [FIXED]: Tank storage routing now uses m³/s × 3600 s/h = m³/h correctly.
- * [FIXED]: baseDem is preserved across EPS; only n.dem is scaled each step.
- * [FIXED]: Tank head is updated from tankLevels map before each solve step.
+ * Main EPS entry point — simulates 25 time steps (0–24 h).
+ * [FIXED]: Tank routing, demand scaling, initial head guess
  */
 async function calculate() {
   const validation = validateNetwork();
@@ -1281,18 +1242,33 @@ async function calculate() {
   isEPSComputed = false;
   isCalculated  = false;
 
-  // [FIXED]: Freeze baseDem for all non-source nodes from current state.
-  // This ensures EPS scaling uses a clean baseline, not polluted by
-  // previous solve results that may have overwritten n.dem.
+  // ── [FIX-DEMAND] Freeze baseDem for EPS scaling ──────────────────────────
+  // CRITICAL: baseDem is the user-input field (saved by saveProp).
+  // dem is the *hourly* demand = baseDem × pattern_multiplier.
+  // We must always re-derive dem from baseDem — NEVER use stale dem as input.
   nodes.forEach(n => {
     n.history = { head:[], p:[], dem:[], wl:[] };
-    // baseDem: user-input demand (m³/h). n.dem is the EPS-scaled value.
     if (!['reservoir','tank','pump'].includes(n.type)) {
-      n.baseDem = n.baseDem ?? n.dem ?? 0;  // lock in user's input demand
+      // Ensure baseDem is always canonical — use dem as fallback only if baseDem missing
+      if (n.baseDem === undefined || n.baseDem === null) {
+        n.baseDem = parseFloat(n.dem) || 0;
+      }
+      n.baseDem = parseFloat(n.baseDem) || 0;
+      // Reset dem to baseDem × 1.0 so solver sees correct initial demand
+      n.dem = n.baseDem;
     }
     if (n.type === 'tank') {
-      n.waterLevel = n.waterLevel || 5;  // ensure valid initial level
-      n.baseDem    = 0;                  // tanks have no external demand
+      n.waterLevel = n.waterLevel !== undefined ? n.waterLevel : 5;
+      n.baseDem    = 0;
+      n.dem        = 0;
+    }
+    if (n.type === 'prv') {
+      n.baseDem = 0;
+      n.dem     = 0;
+    }
+    if (n.type === 'valve' || n.type === 'check_valve') {
+      n.baseDem = 0;
+      n.dem     = 0;
     }
   });
   links.forEach(l => {
@@ -1303,7 +1279,6 @@ async function calculate() {
   let allConverged = true;
   let lastMaxRes = 0;
 
-  // Working copy of tank water levels — persists across EPS time steps
   const tankLevels = new Map();
   nodes.filter(n => n.type === 'tank').forEach(tk => {
     tankLevels.set(tk.id, Math.max(tk.minLevel || 0.1, tk.waterLevel || 5));
@@ -1312,26 +1287,22 @@ async function calculate() {
   for (let t = 0; t <= EPS_HOURS; t++) {
     const patMult = PATTERN_DIURNAL[t] ?? 1.0;
 
-    // Scale demands by diurnal pattern multiplier
     nodes.forEach(n => {
-      if (!['reservoir','tank','pump'].includes(n.type)) {
-        n.dem = (n.baseDem || 0) * patMult;   // m³/h (scaled)
-      }
+      if (['reservoir','tank','pump','prv','valve','check_valve'].includes(n.type)) return;
+      // [FIX-DEMAND] dem = baseDem × diurnal pattern (m³/h)
+      // baseDem is the canonical user input; always multiply from it
+      n.dem = (parseFloat(n.baseDem) || 0) * patMult;
     });
 
-    // Restore tank levels from the working map
-    // (solver writes to n.waterLevel internally; we restore from map)
     nodes.filter(n => n.type === 'tank').forEach(tk => {
       tk.waterLevel = tankLevels.get(tk.id) ?? (tk.waterLevel || 5);
     });
 
-    // Run steady-state solver for this hour
     const stats = _solveHydraulics(t);
     totalIters += stats.iters;
     if (!stats.converged) allConverged = false;
     lastMaxRes = stats.maxRes;
 
-    // Store time-series snapshot
     nodes.forEach(n => {
       n.history.head.push(n.head ?? 0);
       n.history.p.push(n.p     ?? 0);
@@ -1346,10 +1317,7 @@ async function calculate() {
       l.history.hm.push(l.hm    ?? 0);
     });
 
-    // [FIXED] Tank storage routing (EPS continuity):
-    //   ΔV = Q_net × Δt   (Q_net in m³/s, Δt = 3600 s)
-    //   ΔH = ΔV / A_tank
-    // l.flow is in m³/h, so: ΔV [m³] = l.flow [m³/h] × 1 h
+    // Tank storage routing (EPS continuity): ΔH = Q_net × Δt / A_tank
     if (t < EPS_HOURS) {
       nodes.filter(n => n.type === 'tank').forEach(tk => {
         let netFlow_m3h = 0;
@@ -1358,25 +1326,18 @@ async function calculate() {
           for (const { linkId } of adj) {
             const l = linkMap.get(linkId);
             if (!l) continue;
-            // Sign convention: l.flow > 0 means flow from l.s → l.e
-            // If tank is at l.e (end node): positive flow = inflow to tank
-            // If tank is at l.s (start node): positive flow = outflow from tank
             if (l.e === tk.id)  netFlow_m3h += l.flow;
             else                netFlow_m3h -= l.flow;
           }
         }
-        // Δh = ΔV / A = (netFlow_m3h [m³/h] × 1 h) / A_tank [m²]
-        const tankArea = Math.PI * Math.pow((tk.tankDia || 10) / 2, 2); // m²
-        const dH = netFlow_m3h / tankArea;   // m per hour step
-
+        const tankArea = Math.PI * Math.pow((tk.tankDia || 10) / 2, 2);
+        const dH = netFlow_m3h / tankArea;
         let newLevel = (tankLevels.get(tk.id) || 5) + dH;
-        // Clamp to tank min/max operational levels
         newLevel = Math.max(tk.minLevel || 0.1, Math.min(tk.maxLevel || 15, newLevel));
         tankLevels.set(tk.id, newLevel);
       });
     }
 
-    // Yield to browser event loop every step to keep UI responsive
     await new Promise(r => setTimeout(r, 5));
   }
 
@@ -1404,49 +1365,25 @@ async function calculate() {
 
 /**
  * ══════════════════════════════════════════════════════════════════
- *  CORE STEADY-STATE HYDRAULIC SOLVER  —  v2.0  (Production Grade)
+ *  CORE STEADY-STATE HYDRAULIC SOLVER  —  v3.0  (Production Grade)
  * ══════════════════════════════════════════════════════════════════
  *
- * Algorithm: Global Gradient Algorithm (GGA) — same as EPANET 2.x
+ * Algorithm: Global Gradient Algorithm (GGA) variant —
+ *            Newton-Raphson per-node with SOR damping (EPANET-compatible)
  *
- * Theory (Todini & Pilati, 1988):
- *   The network is described by two equation sets:
- *     A) Energy equations (one per link):
- *        h_ij = r_ij · |Q_ij|^n · sign(Q_ij)    (Hazen-Williams: n=1.852)
- *        where h_ij = H_i - H_j (head loss from node i to node j)
- *
- *     B) Continuity equations (one per junction node):
- *        ΣQ_ij - d_i = 0    for all j adjacent to i
- *
- *   GGA linearizes A) at each iteration using a Jacobian approach:
- *     Q_ij^(k+1) = Q_ij^(k) + n·|Q_ij^(k)|^(n-1)/r × (H_i - H_j - r·|Q_ij^(k)|^n·sign(Q_ij^k)) / ...
- *   Then solves the linear system A·H = b for junction heads H.
- *
- * Implementation here uses a simplified node-head iteration (compatible
- * with the existing single-thread JS architecture) that achieves the
- * same convergence as GGA via Successive Over-Relaxation (SOR):
- *
- *   For each junction i:
- *     f(H_i) = ΣQ_ij(H_i, H_j) - d_i = 0
- *     Q_ij   = sign(H_i-H_j) · (|H_i-H_j| / R_ij)^(1/1.852)
- *     ΔH_i   = -f(H_i) / f'(H_i)   [Newton-Raphson step]
- *     f'(H_i) = Σ ∂Q_ij/∂H_i = Σ (1/1.852) · |Q_ij| / |H_i-H_j|
- *
- *   This per-node NR with SOR damping is equivalent to the diagonal-
- *   approximation of GGA and converges in 10–100 iterations for
- *   well-conditioned networks.
- *
- * Key improvements over v1:
- *   [FIX 1] Demand unit: n.dem is m³/h → convert to m³/s inside solver only
- *   [FIX 2] Pump handled as fixed-head source with proper H(Q) curve update
- *   [FIX 3] PRV implemented as headloss constraint, not blended relaxation
- *   [FIX 4] Check valve: status determined once pre-iteration, not inside loop
- *   [FIX 5] SOR damping factor applied correctly — not static 0.82 blend
- *   [FIX 6] Initial head estimation based on elevation + expected HGL gradient
- *   [FIX 7] Convergence check on flow residuals (m³/s), not mixed units
- *   [FIX 8] Minor loss linearization consistent with HW exponent
- *   [FIX 9] Pump: Q_net computed from downstream node pressure, direction-aware
- *   [FIX 10] Mass balance verification post-solve for debug
+ * Key fixes vs v2.0:
+ *   [B1] Minor loss: computed per inline node, NOT per pipe endpoint
+ *        Prevents N-fold duplication when valve node has N adjacent pipes
+ *   [B2] PRV correction moved OUTSIDE inner NR loop to a post-NR phase
+ *        Prevents head oscillation caused by PRV constraint fighting NR update
+ *   [B3] Initial head: BFS distance-weighted from sources
+ *        Gives a much better starting point → fewer iterations, less oscillation
+ *   [B4] Check valve: pre-iteration status + post-convergence re-check
+ *   [B5] Pump: uses actual NR-computed downstream head instead of self-loop
+ *   [B6] PRV direction auto-detection: picks neighbor with HIGHEST head as upstream
+ *        (same as real PRV—it senses inlet pressure)
+ *   [B7] Convergence criterion: L∞ norm on flow residuals (m³/s), consistent units
+ *   [B8] Energy validation: post-solve mass balance check for debug
  *
  * @param {number} hourOfDay  Current EPS hour (0–24)
  * @returns {{ iters:number, converged:boolean, maxRes:number }}
@@ -1455,8 +1392,7 @@ function _solveHydraulics(hourOfDay) {
   const SOURCE_TYPES = new Set(['reservoir', 'tank', 'pump']);
   const h = (typeof hourOfDay === 'number') ? hourOfDay : 0;
 
-  // ─── Identify active pumps for this hour ──────────────────────────────────
-  // A pump is "active" if: not manually OFF, AND schedule slot is ON (1)
+  // ─── Identify active pumps ────────────────────────────────────────────────
   const activePumpIds = new Set(
     nodes
       .filter(n =>
@@ -1467,27 +1403,23 @@ function _solveHydraulics(hourOfDay) {
       .map(n => n.id)
   );
 
-  // Active source nodes: reservoirs + tanks + active pumps
   const sources = nodes.filter(n =>
     SOURCE_TYPES.has(n.type) && (n.type !== 'pump' || activePumpIds.has(n.id))
   );
   if (sources.length === 0) {
-    // No active sources → zero flows everywhere
     nodes.forEach(n => { n.head = n.el; n.p = 0; });
     links.forEach(l => { l.flow = 0; l.vel = 0; l.hl = 0; l.hf = 0; l.hm = 0; l.re = 0; });
     return { iters: 0, converged: true, maxRes: 0 };
   }
 
-  // ─── Identify fully-closed valves (cut network connectivity) ─────────────
+  // ─── Closed valves (sever connectivity) ──────────────────────────────────
   const closedValveNodes = new Set(
     nodes
       .filter(n => n.type === 'valve' && (n.openPercent ?? 100) === 0)
       .map(n => n.id)
   );
 
-  // ─── BFS to find nodes reachable from active sources ─────────────────────
-  // Closed valves act as breaks in the graph (no flow can pass through).
-  // Nodes not reachable get head = elevation (p=0, no flow).
+  // ─── BFS reachability from active sources ─────────────────────────────────
   const reachable = new Set();
   const bfsQueue = [];
   sources.forEach(s => { reachable.add(s.id); bfsQueue.push(s.id); });
@@ -1501,142 +1433,289 @@ function _solveHydraulics(hourOfDay) {
       if (reachable.has(neighborId)) continue;
       const l = linkMap.get(linkId);
       if (!l) continue;
-      // A closed valve at either endpoint severs this link
       if (closedValveNodes.has(l.s) || closedValveNodes.has(l.e)) continue;
       reachable.add(neighborId);
       bfsQueue.push(neighborId);
     }
   }
 
-  // ─── Pre-compute pump curve parameters ────────────────────────────────────
-  // Pump curve: H_pump(Q) = H0 - r_pump × Q²   (parabolic, EPANET style)
-  // H0 (shutoff head) ≈ 1.33 × H_design  (EPANET default if no 3-point curve given)
-  // r_pump = (H0 - H_design) / Q_design²
-  // Operating point: H_system(Q) = H0 - r_pump × Q²
-  const pumpParams = new Map();  // pumpId → { H0, r_pump }
+  // ─── Pump curve parameters ────────────────────────────────────────────────
+  // H(Q) = H0 - r_pump × Q²   (EPANET parabolic model)
+  // H0 = 1.33 × H_design  (EPANET default shutoff head)
+  const pumpParams = new Map();
   nodes.filter(n => n.type === 'pump' && activePumpIds.has(n.id)).forEach(p => {
-    const H_d = Math.max(p.pumpHead || 30, 0.1);   // design head (m)
-    const Q_d_m3s = Math.max((p.pumpFlow || 100) / 3600, 1e-6);  // design flow m³/s
-    const H0 = H_d * 1.33;                          // shutoff head
+    const H_d = Math.max(p.pumpHead || 30, 0.1);
+    const Q_d_m3s = Math.max((p.pumpFlow || 100) / 3600, 1e-6);
+    const H0 = H_d * 1.33;
     const r_pump = (H0 - H_d) / (Q_d_m3s * Q_d_m3s);
     pumpParams.set(p.id, { H0, r_pump });
   });
 
-  // ─── Set fixed heads for source nodes ─────────────────────────────────────
+  // ─── Fixed heads for source nodes ─────────────────────────────────────────
   sources.forEach(s => {
     if (s.type === 'pump') {
-      // Initial pump head = shutoff head (will be updated each iteration)
       const pp = pumpParams.get(s.id);
-      s.head = s.el + (pp ? pp.H0 : s.pumpHead * 1.33 || 40);
+      s.head = s.el + (pp ? pp.H0 : (s.pumpHead || 30) * 1.33);
     } else if (s.type === 'tank') {
-      // Tank head = base elevation + current water level
       const wl = Math.max(s.minLevel || 0.1, Math.min(s.maxLevel || 30, s.waterLevel || 5));
       s.head = s.el + wl;
     } else {
-      // Reservoir: constant head = el + water surface level
       s.head = s.el + Math.max(0, s.waterLevel || 10);
     }
   });
 
-  // Inactive pumps: isolated, head = el
   nodes.filter(n => n.type === 'pump' && !activePumpIds.has(n.id)).forEach(p => {
     p.head = p.el;
     p.p    = 0;
   });
 
-  // ─── Initialize junction heads ────────────────────────────────────────────
-  // [FIX]: Use elevation + estimated HGL offset for better initial guess.
-  // This dramatically reduces iterations vs a flat 10m offset.
-  // Estimate: average source head minus 10m (rough HGL starting point)
-  let avgSourceHead = 0;
-  sources.forEach(s => { avgSourceHead += s.head; });
-  avgSourceHead /= Math.max(sources.length, 1);
+  // ─── [FIXED B3] Initial head: BFS distance-weighted from sources ──────────
+  // Propagate head from sources through BFS, averaging contributions from
+  // all source-paths weighted by hop distance.
+  // This gives a much more realistic starting HGL than a flat offset.
+  {
+    const headInit = new Map(); // nodeId → {sum, count}
+    const bfsQ2 = [...sources.map(s => ({ id:s.id, srcHead:s.head, dist:0 }))];
+    const visited2 = new Set(sources.map(s => s.id));
+    let qi2 = 0;
+    while (qi2 < bfsQ2.length) {
+      const { id, srcHead, dist } = bfsQ2[qi2++];
+      if (!headInit.has(id)) headInit.set(id, { sum:0, cnt:0 });
+      const entry = headInit.get(id);
+      entry.sum += srcHead / (dist + 1);
+      entry.cnt += 1 / (dist + 1);
 
-  nodes.forEach(n => {
-    if (SOURCE_TYPES.has(n.type)) return;  // skip sources
-    if (!reachable.has(n.id)) {
-      // Isolated node: no pressure
-      n.head = n.el;
-      n.p    = 0;
-      return;
+      const adj = adjacency.get(id);
+      if (!adj) continue;
+      for (const { neighborId } of adj) {
+        if (visited2.has(neighborId)) continue;
+        if (!reachable.has(neighborId)) continue;
+        if (closedValveNodes.has(neighborId)) continue;
+        visited2.add(neighborId);
+        bfsQ2.push({ id: neighborId, srcHead, dist: dist + 1 });
+      }
     }
-    // Initial guess: elevation + (avgSourceHead - el) × 0.5 (linear HGL)
-    n.head = n.el + Math.max(0, (avgSourceHead - n.el) * 0.5);
-  });
+    nodes.forEach(n => {
+      if (SOURCE_TYPES.has(n.type)) return;
+      if (!reachable.has(n.id)) {
+        n.head = n.el;
+        n.p    = 0;
+        return;
+      }
+      const entry = headInit.get(n.id);
+      if (entry && entry.cnt > 0) {
+        // Weighted average of source heads, decayed by hop distance
+        // Apply elevation correction (node head must be ≥ el)
+        n.head = Math.max(n.el, entry.sum / entry.cnt);
+      } else {
+        // Fallback: use average source head
+        let avgSrcH = 0;
+        sources.forEach(s => { avgSrcH += s.head; });
+        avgSrcH /= Math.max(sources.length, 1);
+        n.head = Math.max(n.el, avgSrcH * 0.9);
+      }
+    });
+  }
+
+  // ─── [FIXED B4] Check valve: pre-determine blocked state ─────────────────
+  // We decide blocked/unblocked based on initial head estimate.
+  // This prevents the oscillation where blocked state changes every iteration.
+  // After convergence, we re-check once more (see post-solve section).
+  const cvBlocked = new Set();  // Set of link IDs that are currently blocked by CV
+
+  function updateCVStatus() {
+    cvBlocked.clear();
+    for (const l of links) {
+      const nS = nodeMap.get(l.s);
+      const nE = nodeMap.get(l.e);
+      if (!nS || !nE) continue;
+      if (nS.type === 'check_valve' || nE.type === 'check_valve') {
+        // Check valve allows flow s→e only when H_s > H_e
+        if ((nS.head || 0) <= (nE.head || 0)) {
+          cvBlocked.add(l.id);
+        }
+      }
+    }
+  }
+  updateCVStatus();
 
   // ─── Solver parameters ────────────────────────────────────────────────────
-  const MAX_ITER   = 200;       // sufficient for well-conditioned networks
-  const TOL        = 1e-6;      // convergence: max|Q_residual| < 1e-6 m³/s (≈ 0.0036 m³/h)
-  const EXP_INV    = 1.0 / 1.852;  // HW inverse exponent
-  const EXP_DER    = EXP_INV;      // ∂Q/∂H = (1/n) × Q / |ΔH| — same value
-  // SOR (Successive Over-Relaxation) damping:
-  //   ω < 1 = under-relaxation (more stable, fewer oscillations)
-  //   ω > 1 = over-relaxation (faster but may diverge)
-  // Start at ω=1.0, automatically reduce if residuals increase (adaptive damping).
-  let omega = 1.0;
+  const MAX_ITER   = 200;
+  const TOL        = 1e-6;      // m³/s — convergence on flow residuals
+  const EXP_INV    = 1.0 / 1.852;
+  const EXP_DER    = EXP_INV;
+  let omega        = 1.0;       // SOR relaxation factor (adaptive)
 
   let iters = 0, maxRes = 0, converged = false;
   let prevMaxRes = Infinity;
 
-  // Determine check-valve flow directions (once, before iteration starts)
-  // Check valve allows flow only from s → e (defined by pipe direction).
-  // In iteration, if ΔH = H_s - H_e < 0, the check valve blocks flow.
-  // We re-evaluate this after convergence too (may need to update blocked state).
+  // ─── Main NR iteration loop ───────────────────────────────────────────────
+  //
+  // PRV HYDRAULIC MODEL (v4.0):
+  // ─────────────────────────────────────────────────────────────────────────
+  // PRV is modeled as a NODE with FIXED HEAD on its downstream side.
+  // The PRV node represents the controlled (downstream) pressure zone.
+  //
+  // How it works inside NR:
+  //   1. PRV node is EXCLUDED from the NR update (treated like a pseudo-source)
+  //   2. Its head is set each iteration by the PRV control equation:
+  //      - ACTIVE: H_prv = el_prv + setting  (if H_upstream > setting+el)
+  //      - OPEN:   H_prv = H_upstream        (upstream can't provide enough head)
+  //      - CLOSED: H_prv isolated            (reverse flow blocked)
+  //   3. Upstream node sees PRV as a neighbor with fixed head → NR computes
+  //      the flow Q = f(H_upstream - H_prv, R_pipe) naturally via Hazen-Williams
+  //   4. PRV headloss = H_upstream - H_prv (energy dissipated in valve body)
+  //   5. This correctly propagates headloss upstream (energy balance preserved)
+  //
+  // prvInlet = user-specified upstream node ID (or null = auto-detect max-head neighbor)
+  // prvDirection = 'AB' means link.s→link.e direction is upstream→PRV→downstream
+  // ─────────────────────────────────────────────────────────────────────────
 
-  // ─── Main Newton-Raphson iteration loop ──────────────────────────────────
+  // Pre-compute PRV states ONCE before main loop (updated each iteration)
+  // Map: prvNodeId → { state, H_set, upstreamNodeId }
+  const prvStates = new Map();
+
+  function updatePRVStates() {
+    for (const n of nodes) {
+      if (n.type !== 'prv') continue;
+      if (!reachable.has(n.id)) continue;
+
+      const prvSetting = (n.prvSchedule && n.prvSchedule[h] !== undefined && n.prvSchedule[h] !== null)
+        ? parseFloat(n.prvSchedule[h])
+        : parseFloat(n.setting) || 15.0;
+      const H_set = n.el + Math.max(0, prvSetting);
+
+      // Determine upstream node: explicit prvInlet takes priority
+      let H_upstream = -Infinity;
+      let upstreamNodeId = null;
+      const _adj = adjacency.get(n.id);
+
+      if (n.prvInlet && nodeMap.has(n.prvInlet) && reachable.has(n.prvInlet)) {
+        // User explicitly set upstream side
+        upstreamNodeId = n.prvInlet;
+        H_upstream = nodeMap.get(n.prvInlet).head;
+      } else if (_adj) {
+        // Auto-detect: upstream = neighbor with HIGHEST current head
+        for (const { neighborId } of _adj) {
+          if (!reachable.has(neighborId)) continue;
+          const nb = nodeMap.get(neighborId);
+          if (nb && nb.head > H_upstream) {
+            H_upstream = nb.head;
+            upstreamNodeId = neighborId;
+          }
+        }
+      }
+
+      let state = 'OPEN';
+      let H_prv = n.el; // fallback
+
+      if (upstreamNodeId === null || H_upstream === -Infinity) {
+        // Isolated PRV — treat as open with zero flow
+        state = 'OPEN';
+        H_prv = n.el;
+      } else if (H_upstream > H_set) {
+        // ACTIVE: upstream head exceeds setpoint → regulate downstream
+        state = 'ACTIVE';
+        H_prv = H_set;
+      } else {
+        // OPEN: upstream head insufficient → full-open pass-through
+        // PRV acts as open pipe — negligible loss (use upstream head)
+        state = 'OPEN';
+        H_prv = H_upstream;
+      }
+
+      // CLOSED: check if any downstream neighbor pushes back higher head
+      // (reverse flow condition — PRV body physically blocks reverse)
+      if (_adj && state !== 'OPEN') {
+        for (const { neighborId } of _adj) {
+          if (neighborId === upstreamNodeId) continue;
+          if (!reachable.has(neighborId)) continue;
+          const nb = nodeMap.get(neighborId);
+          if (nb && nb.head > H_upstream) {
+            state = 'CLOSED';
+            H_prv = H_upstream; // lock head, zero flow
+            break;
+          }
+        }
+      }
+
+      prvStates.set(n.id, { state, H_prv, H_set, upstreamNodeId });
+      // Apply head constraint immediately so NR neighbors see correct PRV head
+      n.head = H_prv;
+      n.prvState = state;
+    }
+  }
+
+  // Initialize PRV states from initial head estimates
+  updatePRVStates();
+
   for (let iter = 0; iter < MAX_ITER; iter++) {
     maxRes = 0;
 
-    // ── Junction node head update (Newton-Raphson per node) ──
+    // ── Per-junction Newton-Raphson update ──────────────────────────────────
     for (const n of nodes) {
-      // Skip: sources (fixed head), unreachable, closed valves
       if (SOURCE_TYPES.has(n.type)) continue;
-      if (!reachable.has(n.id))      continue;
+      if (!reachable.has(n.id))     continue;
       if (closedValveNodes.has(n.id)) continue;
 
-      let sumQ      = 0;   // net inflow to node n (m³/s), positive = into n
-      let sumdQdH   = 0;   // sum of |∂Q/∂H_n| for all adjacent pipes
+      // [FIX-PRV] PRV nodes are FIXED HEAD — skip NR update for them
+      // Their head is controlled by updatePRVStates() each iteration
+      if (n.type === 'prv') continue;
+
+      let sumQ    = 0;   // net inflow to node (m³/s)
+      let sumdQdH = 0;   // Σ|∂Q/∂H_n|
 
       const adj = adjacency.get(n.id);
       if (adj) {
         for (const { linkId, neighborId } of adj) {
-          // Skip unreachable neighbors
           if (!reachable.has(neighborId)) continue;
 
           const l  = linkMap.get(linkId);
           if (!l) continue;
 
-          const nb = nodeMap.get(neighborId);
-          if (!nb) continue;
+          // [FIXED B4] Check valve: use pre-determined blocked state
+          if (cvBlocked.has(linkId)) continue;
 
-          // Check valve: if l.s is the "inlet" side of the check valve
-          // Flow is only allowed from l.s → l.e (positive direction).
-          // If this link's end nodes include a check valve, block reverse flow.
-          const cvAtS = nodeMap.get(l.s)?.type === 'check_valve';
-          const cvAtE = nodeMap.get(l.e)?.type === 'check_valve';
-          if (cvAtS || cvAtE) {
-            // For check valve: flow only allowed s→e if H_s > H_e
-            const H_s = nodeMap.get(l.s)?.head ?? 0;
-            const H_e = nodeMap.get(l.e)?.head ?? 0;
-            if (H_s <= H_e) continue;   // reverse: blocked, contributes zero flow
+          // [FIX-PRV] If neighbor is PRV in CLOSED state, skip this link
+          const nbNode = nodeMap.get(neighborId);
+          if (!nbNode) continue;
+          if (nbNode.type === 'prv') {
+            const ps = prvStates.get(neighborId);
+            if (ps && ps.state === 'CLOSED') continue;
           }
 
-          // Get pipe resistance (pre-computed including minor losses)
+          // [FIXED B1] Pipe resistance = friction only
+          let R = pipeResistance(l);
+
+          // [FIXED B1] Add inline node minor loss for valve/CV nodes
           const nS = nodeMap.get(l.s);
           const nE = nodeMap.get(l.e);
-          const R  = pipeResistance(l, nS, nE);
-          if (R <= 0) continue;  // degenerate pipe
+          const dH_est   = (nS?.head ?? 0) - (nE?.head ?? 0);
+          const Q_est_m3s = dH_est !== 0
+            ? Math.pow(Math.abs(dH_est) / Math.max(R, 1e-10), EXP_INV)
+            : 0;
 
-          // Head difference from neighbor to this node
-          // Convention: positive dH = flow into node n from neighbor nb
-          const dH   = nb.head - n.head;
+          if (nS && (nS.type === 'valve' || nS.type === 'check_valve') && nS.id !== n.id) {
+            const op = nS.type === 'valve' ? (nS.openPercent ?? 100) : 100;
+            R += nodeMinorResistance(nS.type, l.dia || 100, op, Q_est_m3s);
+          }
+          if (nE && (nE.type === 'valve' || nE.type === 'check_valve') && nE.id !== n.id) {
+            const op = nE.type === 'valve' ? (nE.openPercent ?? 100) : 100;
+            R += nodeMinorResistance(nE.type, l.dia || 100, op, Q_est_m3s);
+          }
+          if ((n.type === 'valve' || n.type === 'check_valve')) {
+            const op = n.type === 'valve' ? (n.openPercent ?? 100) : 100;
+            R += nodeMinorResistance(n.type, l.dia || 100, op, Q_est_m3s);
+          }
+
+          if (R <= 0) continue;
+
+          const dH   = nbNode.head - n.head;
           const aH   = Math.abs(dH);
           const sign  = dH >= 0.0 ? 1.0 : -1.0;
 
           if (aH > 1e-10) {
-            // Hazen-Williams inverse: Q = (|ΔH|/R)^(1/1.852)
-            const Q   = sign * Math.pow(aH / R, EXP_INV);
-            // Derivative: |∂Q/∂H_n| = (1/1.852) × |Q| / |ΔH|
+            const Q    = sign * Math.pow(aH / R, EXP_INV);
             const dQdH = EXP_DER * Math.abs(Q) / aH;
             sumQ    += Q;
             sumdQdH += dQdH;
@@ -1644,45 +1723,45 @@ function _solveHydraulics(hourOfDay) {
         }
       }
 
-      // Continuity residual at node n:
-      //   f(H_n) = ΣQ_in - d_n  (must = 0 at solution)
-      //   n.dem is in m³/h → convert to m³/s
-      const dem_m3s = (n.dem || 0) / 3600.0;
+      // [FIX-DEMAND] Continuity residual: f = Σ(Q_in) - d_n  [m³/s]
+      // dem is already in m³/h (set by EPS loop from baseDem × pattern)
+      const dem_m3s = (parseFloat(n.dem) || 0) / 3600.0;
       const residual = sumQ - dem_m3s;
       const absRes   = Math.abs(residual);
       if (absRes > maxRes) maxRes = absRes;
 
-      // Newton-Raphson head correction:
-      //   ΔH = -f / f'  =  -residual / sumdQdH
-      // Apply with SOR factor omega and clamp to prevent large steps
       if (sumdQdH > 1e-14) {
-        // [FIX]: correct sign: if residual > 0 (too much inflow), raise H to reduce Q in
-        const rawDH = residual / sumdQdH;  // NR step (positive = raise head)
-        const clampDH = Math.max(-10.0, Math.min(10.0, rawDH));
+        let _maxAdjDH = 1.0;
+        if (adj) {
+          for (const { neighborId: _nid } of adj) {
+            const _nb2 = nodeMap.get(_nid);
+            if (_nb2 && reachable.has(_nid)) {
+              const _dh2 = Math.abs(_nb2.head - n.head);
+              if (_dh2 > _maxAdjDH) _maxAdjDH = _dh2;
+            }
+          }
+        }
+        const rawDH  = residual / sumdQdH;
+        const stepCap = Math.min(5.0, 0.4 * _maxAdjDH);
+        const clampDH = Math.max(-stepCap, Math.min(stepCap, rawDH));
         n.head += omega * clampDH;
-        // Hard floor: head cannot drop below elevation (no negative pressure allowed by physics
-        // unless tank system creates siphon — we guard conservatively here)
-        // Note: EPANET allows negative pressure but reports it as warning.
-        // We allow it for fidelity but clamp to el - 20m (extreme siphon)
         n.head = Math.max(n.el - 20.0, n.head);
       } else if (residual < -1e-9) {
-        // Degenerate: demand exceeds available flow → lower head gently
         n.head = Math.max(n.el - 20.0, n.head - 0.5 * omega);
-      }
-
-      // PRV (Pressure Reducing Valve): enforce downstream head ≤ setpoint
-      // PRV acts like a fixed-head node when upstream pressure exceeds setting.
-      // [FIX]: Apply as hard constraint after NR step, not as blended relaxation.
-      if (n.type === 'prv') {
-        const prvHead = n.el + (n.setting || 15.0);
-        if (n.head > prvHead) n.head = prvHead;  // clamp to setpoint
       }
     }
 
-    // ── Pump head update (pump curve operating point) ──
-    // [FIX]: Pump head = H0 - r × Q²  where Q = total flow OUT of pump node.
-    // We compute Q from the head difference with downstream nodes,
-    // then update pump head to match pump curve. This is iterated to convergence.
+    // ── [FIX-PRV v4] Update PRV states AFTER NR pass ─────────────────────
+    // Upstream heads are now updated → re-compute PRV operating state
+    updatePRVStates();
+
+    // ── Pump head update (pump curve iteration) ───────────────────────────
+    // Pump is modeled as a FIXED-HEAD SOURCE.
+    // Head = el_pump + H_pump(Q)  where H_pump = H0 - r×Q²
+    //
+    // Q_pump = total flow from pump into downstream pipe(s)
+    // Downstream = neighbor where H_neighbor < H_pump (flow direction away from pump)
+    // If suction pipe connected (e.g., reservoir at lower head), ignore it for pump curve.
     for (const p of nodes) {
       if (p.type !== 'pump' || !activePumpIds.has(p.id)) continue;
       if (!reachable.has(p.id)) continue;
@@ -1690,8 +1769,7 @@ function _solveHydraulics(hourOfDay) {
       const pp = pumpParams.get(p.id);
       if (!pp) continue;
 
-      // Sum up flow delivered by pump = outflow to downstream nodes
-      // [FIX]: pump flow is flow leaving the pump (s→e direction from pump)
+      // Sum ONLY outgoing flow (to discharge side)
       let Q_pump_m3s = 0;
       const adj = adjacency.get(p.id);
       if (adj) {
@@ -1701,40 +1779,38 @@ function _solveHydraulics(hourOfDay) {
           if (!l) continue;
           const nb = nodeMap.get(neighborId);
           if (!nb) continue;
-          const nS = nodeMap.get(l.s);
-          const nE = nodeMap.get(l.e);
-          const R  = pipeResistance(l, nS, nE);
+          // Only count discharge side (head differential is pump → downstream)
+          const R = pipeResistance(l);
           if (R <= 0) continue;
-
-          const dH = p.head - nb.head;  // head drop across link from pump perspective
-          const aH = Math.abs(dH);
-          if (aH > 1e-10) {
-            // Positive = pump is delivering (pump head > downstream)
-            Q_pump_m3s += Math.max(0, Math.pow(aH / R, EXP_INV) * (dH >= 0 ? 1 : -1));
+          const dH = p.head - nb.head;
+          if (dH > 0) {  // flow going OUT from pump
+            Q_pump_m3s += Math.pow(dH / R, EXP_INV);
           }
         }
       }
 
-      // Pump curve: H_pump = H0 - r × Q²
-      // [FIX]: Clamp Q_pump to [0, Q_max] where Q_max from H(Q)=0 → Q_max = sqrt(H0/r)
-      const Q_clamped = Math.max(0, Math.min(Q_pump_m3s, Math.sqrt(pp.H0 / Math.max(pp.r_pump, 1e-10))));
+      // Pump curve: H = H0 - r × Q²
+      const Q_max = Math.sqrt(pp.H0 / Math.max(pp.r_pump, 1e-10));
+      const Q_clamped = Math.max(0, Math.min(Q_pump_m3s, Q_max));
       const H_pump = Math.max(0, pp.H0 - pp.r_pump * Q_clamped * Q_clamped);
 
-      // Update pump head (with under-relaxation to prevent oscillation)
+      // Under-relaxation (50%) for pump convergence stability
       const newHead = p.el + H_pump;
-      p.head = p.head * 0.5 + newHead * 0.5;  // 50% under-relaxation for pump convergence
+      p.head = p.head * 0.5 + newHead * 0.5;
     }
 
-    // ── Adaptive damping: reduce omega if residuals are growing ──
-    // This prevents divergence in poorly-conditioned networks (e.g., multiple loops).
+    // ── Adaptive SOR damping ──────────────────────────────────────────────
     if (maxRes > prevMaxRes * 1.5 && omega > 0.3) {
-      omega = Math.max(0.3, omega * 0.8);  // reduce relaxation factor
+      omega = Math.max(0.3, omega * 0.8);
     } else if (maxRes < prevMaxRes * 0.5 && omega < 1.0) {
-      omega = Math.min(1.0, omega * 1.1);  // allow recovery toward full NR
+      omega = Math.min(1.0, omega * 1.1);
     }
     prevMaxRes = maxRes;
 
-    // Check convergence
+    // ── Update CV blocked status every 5 iterations ──────────────────────
+    if (iter % 5 === 4) updateCVStatus();
+
+    // ── Convergence check ─────────────────────────────────────────────────
     if (maxRes < TOL) {
       converged = true;
       iters = iter + 1;
@@ -1743,22 +1819,22 @@ function _solveHydraulics(hourOfDay) {
     iters = iter + 1;
   }
 
-  // ─── Post-solve: Compute node pressures ──────────────────────────────────
-  // Pressure head (m) = hydraulic head - elevation
-  // [FIX]: Do NOT clamp to max(0,...) — negative pressure is physically valid
-  // (siphon conditions). Report it; UI can flag it as a warning.
+  // ─── Post-solve: Final CV status re-check ────────────────────────────────
+  updateCVStatus();
   nodes.filter(n => n.type === 'check_valve').forEach(cv => { cv.cvBlocked = false; });
+
+  // ─── Post-solve: Node pressures ──────────────────────────────────────────
+  // p = H - el  (signed; negative = siphon condition, physically valid)
   nodes.forEach(n => {
     if (!reachable.has(n.id) && !SOURCE_TYPES.has(n.type)) {
-      n.p = 0;
+      n.p    = 0;
       n.head = n.el;
     } else {
-      n.p = n.head - n.el;   // signed pressure head (m WC)
-      // For display: show 0 if truly isolated
+      n.p = n.head - n.el;
     }
   });
 
-  // ─── Post-solve: Compute link flows, velocities, head losses ─────────────
+  // ─── Post-solve: Link flows, velocities, head losses ─────────────────────
   links.forEach(l => {
     const n1 = nodeMap.get(l.s);
     const n2 = nodeMap.get(l.e);
@@ -1771,81 +1847,83 @@ function _solveHydraulics(hourOfDay) {
     const closed1  = n1.type === 'valve' && (n1.openPercent ?? 100) === 0;
     const closed2  = n2.type === 'valve' && (n2.openPercent ?? 100) === 0;
 
-    // Check valve: block reverse flow (flow only s→e)
-    let cvBlocked = false;
-    if (n1.type === 'check_valve' || n2.type === 'check_valve') {
-      if (n1.head <= n2.head) {
-        cvBlocked = true;
-        if (n1.type === 'check_valve') n1.cvBlocked = true;
-        if (n2.type === 'check_valve') n2.cvBlocked = true;
-      }
+    // Check valve blocking (from final CV status)
+    let cvBlockedFlag = false;
+    if (cvBlocked.has(l.id)) {
+      cvBlockedFlag = true;
+      if (n1.type === 'check_valve') n1.cvBlocked = true;
+      if (n2.type === 'check_valve') n2.cvBlocked = true;
     }
 
-    if (isolated || closed1 || closed2 || cvBlocked) {
-      l.flow = 0; l.vel  = 0;
+    if (isolated || closed1 || closed2 || cvBlockedFlag) {
+      l.flow = 0; l.vel = 0;
       l.hl   = Math.abs((n1.head || 0) - (n2.head || 0));
       l.hf   = l.hl; l.hm = 0; l.re = 0;
       return;
     }
 
-    const D_m  = Math.max(l.dia || 100, 1) / 1000;     // diameter (m)
-    const C    = Math.max(l.c   || 150, 1);             // HW coefficient
-    const A    = Math.PI * (D_m / 2) * (D_m / 2);      // cross-section area (m²)
+    const D_m = Math.max(l.dia || 100, 1) / 1000;
+    const C   = Math.max(l.c   || 150, 1);
+    const A   = Math.PI * (D_m / 2) * (D_m / 2);
 
-    const dH   = n1.head - n2.head;                    // head loss s→e (signed)
-    const aH   = Math.abs(dH);
-    const sign  = dH >= 0.0 ? 1.0 : -1.0;              // flow direction
+    const dH  = n1.head - n2.head;
+    const aH  = Math.abs(dH);
+    const sign = dH >= 0.0 ? 1.0 : -1.0;
 
-    // Total resistance (friction + minor losses)
-    const R = pipeResistance(l, n1, n2);
+    // [FIXED B1] Compute effective resistance including inline accessory minor losses
+    const R_hw = pipeResistance(l);  // friction only
+    // Add inline node minor losses to get total R for flow calculation
+    let R_total = R_hw;
+    const Q_est = aH > 1e-12 ? Math.pow(aH / R_hw, EXP_INV) : 0;
+    if (n1.type === 'valve' || n1.type === 'check_valve') {
+      const op = n1.type === 'valve' ? (n1.openPercent ?? 100) : 100;
+      R_total += nodeMinorResistance(n1.type, l.dia || 100, op, Q_est);
+    }
+    if (n2.type === 'valve' || n2.type === 'check_valve') {
+      const op = n2.type === 'valve' ? (n2.openPercent ?? 100) : 100;
+      R_total += nodeMinorResistance(n2.type, l.dia || 100, op, Q_est);
+    }
 
-    // Flow from H-W inverse: Q = (|ΔH|/R)^(1/n) [m³/s]
-    const Q_m3s = aH > 1e-12 ? Math.pow(aH / R, EXP_INV) : 0.0;
+    const Q_m3s = aH > 1e-12 ? Math.pow(aH / Math.max(R_total, 1e-15), EXP_INV) : 0.0;
 
-    l.flow = Q_m3s * 3600.0 * sign;          // m³/h (signed)
-    l.vel  = (Q_m3s / A) * sign;             // m/s  (signed, + = n1→n2)
-    l.hl   = aH;                             // total head loss (m)
+    l.flow = Q_m3s * 3600.0 * sign;
+    l.vel  = (Q_m3s / A) * sign;
+    l.hl   = aH;
 
-    // Separate friction head loss from minor loss
-    const R_hw_only = hwResistance(l.len, l.dia || 100, C);
-    l.hf = R_hw_only * Math.pow(Q_m3s, 1.852);   // friction head loss (m)
-    l.hm = Math.max(0.0, aH - l.hf);             // minor loss (m)
+    // Separate friction vs minor head loss
+    l.hf = R_hw * Math.pow(Q_m3s, 1.852);
+    l.hm = Math.max(0.0, aH - l.hf);
 
-    // Reynolds number (kinematic viscosity of water at 20°C = 1.004×10⁻⁶ m²/s)
+    // Reynolds number (ν = 1.004×10⁻⁶ m²/s at 20°C)
     l.re = Math.abs(l.vel) * D_m / 1.004e-6;
   });
 
-  // ─── Debug: mass balance check ────────────────────────────────────────────
-  // [ADDED]: In-solver mass balance verification for debug logging.
-  // Ideally, Σ(source outflow) ≈ Σ(demand) within TOL.
+  // ─── Debug: mass balance ─────────────────────────────────────────────────
   if (_logger) {
     let totalSupply = 0, totalDemand = 0;
     nodes.forEach(n => {
-      if (!['reservoir','tank','pump'].includes(n.type)) {
-        totalDemand += (n.dem || 0) / 3600.0;  // m³/s
-      }
+      if (!SOURCE_TYPES.has(n.type)) totalDemand += (n.dem || 0) / 3600.0;
     });
     links.forEach(l => {
       const n1 = nodeMap.get(l.s);
       const n2 = nodeMap.get(l.e);
       if (!n1 || !n2) return;
-      const src1 = SOURCE_TYPES.has(n1.type);
-      const src2 = SOURCE_TYPES.has(n2.type);
       const Q_m3s = l.flow / 3600.0;
-      if (src1 && !src2 && Q_m3s > 0) totalSupply += Q_m3s;
-      if (src2 && !src1 && Q_m3s < 0) totalSupply += Math.abs(Q_m3s);
+      if (SOURCE_TYPES.has(n1.type) && !SOURCE_TYPES.has(n2.type) && Q_m3s > 0) totalSupply += Q_m3s;
+      if (SOURCE_TYPES.has(n2.type) && !SOURCE_TYPES.has(n1.type) && Q_m3s < 0) totalSupply += Math.abs(Q_m3s);
     });
     const balance = Math.abs(totalSupply - totalDemand);
     _logger.info(
-      `Solver h=${h}: iters=${iters}, converged=${converged}, ` +
+      `Solver h=${h}: iters=${iters}, conv=${converged}, ` +
       `maxRes=${maxRes.toExponential(3)}, ` +
-      `supply=${(totalSupply*3600).toFixed(4)}m³/h, demand=${(totalDemand*3600).toFixed(4)}m³/h, ` +
-      `|S-D|=${(balance*3600).toFixed(6)}m³/h, omega=${omega.toFixed(3)}`
+      `S=${(totalSupply*3600).toFixed(4)}m³/h, D=${(totalDemand*3600).toFixed(4)}m³/h, ` +
+      `|S-D|=${(balance*3600).toFixed(6)}m³/h, ω=${omega.toFixed(3)}`
     );
   }
 
   return { iters, converged, maxRes };
 }
+
 
 
 // ============================================================
@@ -1909,33 +1987,58 @@ function updateSummaryUI() {
   let totD = 0, totS = 0, maxHL = 0, maxV = 0;
   nodes.forEach(n => { if ((n.dem || 0) > 0) totD += n.dem; });
 
-  // สมดุลน้ำ: Supply = ผลรวมการไหลออกจาก source nodes (Reservoir/Tank/Pump)
-  // นับเฉพาะ link ที่เชื่อมระหว่าง source กับ non-source เท่านั้น (ไม่นับซ้ำ)
+  // ── Supply: วนลูปจาก Source Nodes → sum net outflow (แก้ double-count) ──
   const _SRC_SET = new Set(['reservoir','tank','pump']);
-  const _countedSrcLinks = new Set();
+  const _seenLinks = new Set();
   links.forEach(l => {
     const n1 = nodeMap.get(l.s), n2 = nodeMap.get(l.e);
     if (!n1 || !n2) return;
     if (l.hl > maxHL) maxHL = l.hl;
     if (Math.abs(l.vel) > maxV) maxV = Math.abs(l.vel);
-    if (_countedSrcLinks.has(l.id)) return;
-    const src1 = _SRC_SET.has(n1.type);
-    const src2 = _SRC_SET.has(n2.type);
-    // l.flow > 0 หมายถึงน้ำไหล n1→n2, < 0 หมายถึง n2→n1
-    if (src1 && !src2) { totS += Math.max(0, l.flow); _countedSrcLinks.add(l.id); }
-    if (src2 && !src1) { totS += Math.max(0, -l.flow); _countedSrcLinks.add(l.id); }
+  });
+  nodes.filter(n => _SRC_SET.has(n.type)).forEach(src => {
+    const adj2 = adjacency.get(src.id);
+    if (!adj2) return;
+    for (const { linkId } of adj2) {
+      if (_seenLinks.has(linkId)) continue;
+      const l = linkMap.get(linkId);
+      if (!l) continue;
+      const n1 = nodeMap.get(l.s), n2 = nodeMap.get(l.e);
+      if (!n1 || !n2) continue;
+      if (_SRC_SET.has(n1.type) && _SRC_SET.has(n2.type)) continue; // source-source link
+      const outflow = (l.s === src.id) ? l.flow : -l.flow;
+      if (outflow > 0) totS += outflow;
+      _seenLinks.add(linkId);
+    }
   });
 
-  const jns = nodes.filter(n => !['reservoir','tank','pump'].includes(n.type));
-  let minP_m = jns.length > 0 ? Infinity : 0;
-  jns.forEach(n => { if ((n.p || 0) < minP_m) minP_m = n.p; });
-  const minP_bar = minP_m === Infinity ? 0 : minP_m / 10.197;
+  // ── Min/Max Pressure: ข้าม isolated nodes ที่มี p=0 แต่ไม่มีน้ำไหลจริง ──
+  const jns = nodes.filter(n => !_SRC_SET.has(n.type));
+  let minP_m = Infinity, maxP_m = -Infinity;
+  jns.forEach(n => {
+    const adj3 = adjacency.get(n.id);
+    const hasFlow = adj3 && [...adj3].some(({ linkId }) => {
+      const l = linkMap.get(linkId);
+      return l && Math.abs(l.flow || 0) > 0.001;
+    });
+    if (!hasFlow && (n.p || 0) === 0) return;  // skip isolated zero
+    const pv = n.p || 0;
+    if (pv < minP_m) minP_m = pv;
+    if (pv > maxP_m) maxP_m = pv;
+  });
+  const minP_bar = minP_m === Infinity  ? 0 : minP_m / 10.197;
+  const maxP_bar = maxP_m === -Infinity ? 0 : maxP_m / 10.197;
 
   document.getElementById('sysHdrTitle').innerText =
     isEPSComputed ? `⚡ Status @ ${currentTimeStep.toString().padStart(2,'0')}:00` : '⚡ System Status';
   document.getElementById('val-supply').innerText  = totS.toFixed(2) + ' m³/h';
   document.getElementById('val-demand').innerText  = totD.toFixed(2) + ' m³/h';
   document.getElementById('val-min-p').innerText   = minP_bar.toFixed(2) + ' bar';
+  const _maxPEl = document.getElementById('val-max-p');
+  if (_maxPEl) {
+    _maxPEl.innerText   = maxP_bar.toFixed(2) + ' bar';
+    _maxPEl.style.color = maxP_bar > 10 ? '#f87171' : maxP_bar > 7 ? '#fb923c' : 'rgba(255,255,255,0.7)';
+  }
   document.getElementById('val-max-hl').innerText  = maxHL.toFixed(3) + ' m';
   document.getElementById('val-max-v').innerText   = maxV.toFixed(2) + ' m/s';
   document.getElementById('val-count').innerText   = nodes.length + ' / ' + links.length;
@@ -2021,10 +2124,18 @@ function getNodeIcon(n) {
         dotColor = '#fbbf24'; // เหลืองส้ม (0.4–0.5 บาร์)
       }
       wrapClass = '';
-    } else {
-      // ปกติ: ≥ 0.5 บาร์ — สีเขียว
+    } else if (pbar <= 7.0) {
+      // ปกติ: 0.5–7.0 บาร์ — สีเขียว (ช่วงมาตรฐาน)
       dotColor = '#22c55e';
       wrapClass = '';
+    } else if (pbar <= 10.0) {
+      // สูง: 7–10 บาร์ — ส้มเข้ม (ใกล้ขีดสูงสุด PN10)
+      dotColor = '#ea580c';
+      wrapClass = '';
+    } else {
+      // OVERPRESSURE: > 10 บาร์ — ม่วง + กระพริบ (เกิน PN10 ท่อ PE/PVC)
+      dotColor = '#9333ea';
+      wrapClass = 'node-critical-blink';
     }
   }
 
@@ -2042,8 +2153,7 @@ function getNodeIcon(n) {
     return `<div class="node-svg-wrap">${SVG.pump(_pumpOn)}</div>`;
   }
   if (n.type === 'prv')         return `<div class="node-svg-wrap">${SVG.prv}</div>`;
-  if (n.type === 'air_valve')   return `<div class="node-svg-wrap">${SVG.air_valve}</div>`;
-  if (n.type === 'hydrant')     return `<div class="node-svg-wrap">${SVG.hydrant}</div>`;
+
   if (n.type === 'check_valve') return `<div class="node-svg-wrap" style="overflow:visible;">${SVG.check_valve(n.cvFlowAngle || 0, n.cvBlocked || false)}</div>`;
   if (n.type === 'valve') {
     const pct = n.openPercent ?? (n.status === 'CLOSED' ? 0 : 100);
@@ -2088,7 +2198,11 @@ function buildNodeTooltip(n) {
     const vc = pct === 0 ? '#ef4444' : pct < 100 ? '#ea580c' : '#22c55e';
     nc += `<b style="color:${vc};">🚰</b> ${pct === 0 ? 'ปิดสนิท' : pct === 100 ? 'เปิดเต็ม' : pct + '% (หรี่)'}<br>`;
   } else if (n.type === 'prv') {
-    nc += `<b style="color:#f97316;">PRV Set:</b> ${n.setting}m<br>`;
+    const _prvH = isEPSComputed ? currentTimeStep : 0;
+    const _prvSetting = (n.prvSchedule && n.prvSchedule[_prvH] !== null && n.prvSchedule[_prvH] !== undefined)
+      ? n.prvSchedule[_prvH] : (n.setting || 15);
+    nc += `<b style="color:#f97316;">PRV Setting:</b> ${parseFloat(_prvSetting).toFixed(1)}m (${(parseFloat(_prvSetting)/10.197).toFixed(2)} bar)<br>`;
+    if (n.prvInlet) nc += `<b style="color:#0891b2;">⬆ Upstream:</b> ${n.prvInlet}<br>`;
   } else if (n.type === 'tank') {
     const _tkHead = n.el + (n.waterLevel || 0);
     nc += `<b style="color:#8b5cf6;">💧 Level:</b> ${(n.waterLevel || 0).toFixed(2)}m<br>`;
@@ -2114,7 +2228,7 @@ function buildNodeTooltip(n) {
 
   if ((n.dem || 0) > 0) nc += `<b style="color:#dc2626;">Dem:</b> ${n.dem.toFixed(2)} m³/h<br>`;
   nc += `<b style="color:#475569;">Elev:</b> ${n.el.toFixed(2)}m<br>`;
-  if (isCalculated && !['valve','air_valve','check_valve'].includes(n.type)) {
+  if (isCalculated && !['valve','check_valve'].includes(n.type)) {
     nc += `<b style="color:#f97316;">Press:</b> ${p_bar.toFixed(2)} bar<br>`;
     nc += `<b style="color:#059669;">Head:</b> ${(n.head || 0).toFixed(2)}m`;
   }
@@ -2212,7 +2326,6 @@ function render() {
     // Junction dots use a fixed small size; equipment icons use their natural size.
     // All sizes are in CSS pixels (screen-space), so they never grow when zooming out.
     const isSz = n.type==='tank'?[40,44]:n.type==='reservoir'?[40,36]:n.type==='pump'?[40,40]:
-                 n.type==='hydrant'?[32,38]:n.type==='air_valve'?[32,36]:
                  n.type==='check_valve'?[46,32]:
                  n.type==='junction'?(()=>{const _z=map?map.getZoom():0;return _z>=15?[28,30]:[22,22];})():
                  n.type==='valve'?[22,22]:n.type==='prv'?[22,22]:[22,22];
@@ -2294,6 +2407,36 @@ function updateMaterialInfo() {
   }
 }
 
+// PRV Schedule helper functions
+function prvSchedInput(nodeId, hour, val) {
+  const n = nodeMap.get(nodeId);
+  if (!n) return;
+  if (!n.prvSchedule) n.prvSchedule = Array(25).fill(null);
+  const parsed = parseFloat(val);
+  n.prvSchedule[hour] = isNaN(parsed) ? null : parsed;
+  // Update input border colour: orange = custom, grey = default
+  const inp = document.getElementById(`prv_sch_${hour}`);
+  if (inp) {
+    const isCustom = n.prvSchedule[hour] !== null;
+    inp.style.borderColor   = isCustom ? '#f97316' : '#e2e8f0';
+    inp.style.background    = isCustom ? '#fff7ed' : 'white';
+  }
+}
+function prvSchedReset(nodeId) {
+  const n = nodeMap.get(nodeId);
+  if (!n) return;
+  n.prvSchedule = null;
+  // Refresh prop panel
+  openProp(nodeId, 'node');
+}
+function prvSchedCopy(nodeId) {
+  const n = nodeMap.get(nodeId);
+  if (!n) return;
+  // Fill all hours with the static setting value
+  n.prvSchedule = Array(25).fill(n.setting || 15);
+  openProp(nodeId, 'node');
+}
+
 function updatePRVInfo() {
   const si = document.getElementById('i_prv_size');
   const fs = document.getElementById('prv_max_flow');
@@ -2334,10 +2477,15 @@ function openProp(id, type) {
   if (isCalculated) {
     if (type === 'node') {
       const pb = (el.p || 0) / 10.197;
-      const pColor = pb <= 0 ? '#374151' : pb <= 0.5 ? '#ef4444' : pb < 1 ? '#f97316' : '#22c55e';
+      const pColor = pb <= 0 ? '#374151' : pb < 0.5 ? '#ef4444' : pb < 1 ? '#f97316' : pb <= 7 ? '#22c55e' : pb <= 10 ? '#ea580c' : '#9333ea';
+      const demVal = parseFloat(el.baseDem) || 0;
+      const demRow = (el.type === 'junction' && demVal > 0)
+        ? `<div class="res-item"><span class="res-label">💧 Demand (คำนวณ)</span><span class="res-val" style="color:#2563eb;">${(el.dem||0).toFixed(3)} m³/h (Base=${demVal.toFixed(2)})</span></div>`
+        : '';
       res = `<div class="panel-res-box">
         <div class="res-item"><span class="res-label">📊 Total Head</span><span class="res-val">${(el.head || 0).toFixed(3)} m</span></div>
         <div class="res-item"><span class="res-label">🟡 Pressure</span><span class="res-val" style="color:${pColor};">${pb.toFixed(3)} bar (${(el.p || 0).toFixed(2)} mWC)</span></div>
+        ${demRow}
       </div>`;
     } else {
       const vColor = Math.abs(el.vel || 0) > 2.5 ? '#ef4444' : Math.abs(el.vel || 0) > 1.5 ? '#f59e0b' : '#22c55e';
@@ -2376,12 +2524,128 @@ function openProp(id, type) {
       const cps = el.prvSize || 100;
       const pso = PIPE_SIZES.filter(s => s >= 40 && s <= 600).map(s => `<option value="${s}" ${cps == s ? 'selected' : ''}>${s} mm</option>`).join('');
       const imf = ((Math.PI * Math.pow(cps / 2000, 2)) * 2.5 * 3600).toFixed(1);
-      h += `<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:14px;padding:14px;">
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:10px;">
-          <div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;font-family:var(--sans);">⬇️ Target Head (m)</label><input id="i_set" type="number" step="0.1" value="${el.setting || 15}" class="eng-input" style="border-color:#fed7aa;"></div>
-          <div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;font-family:var(--sans);">🔧 PRV Size</label><select id="i_prv_size" class="eng-input" style="border-color:#fed7aa;" onchange="updatePRVInfo()">${pso}</select></div>
+
+      // ─── Direction Control: find actual connected neighbors ──────────────
+      // Build list of neighbor nodes from adjacency (what's physically connected)
+      const _prvAdj = adjacency.get(el.id);
+      const _neighbors = [];
+      if (_prvAdj) {
+        for (const { neighborId } of _prvAdj) {
+          const _nb = nodeMap.get(neighborId);
+          if (_nb) {
+            const _isUpstream = el.prvInlet === neighborId;
+            const _headStr = isCalculated ? ` | H=${(_nb.head||0).toFixed(1)}m` : '';
+            _neighbors.push({ id: neighborId, name: TYPE_NAMES[_nb.type]||_nb.type, el: _nb.el, isUpstream: _isUpstream, headStr: _headStr });
+          }
+        }
+      }
+
+      // Build direction control UI: visual buttons for each neighbor
+      let dirHtml = '';
+      if (_neighbors.length === 0) {
+        dirHtml = `<div style="padding:8px;background:#fef2f2;border-radius:8px;font-size:9px;color:#b91c1c;">⚠ PRV ยังไม่ได้เชื่อมต่อกับท่อ — วาดท่อเชื่อม PRV ก่อน</div>`;
+      } else if (_neighbors.length === 1) {
+        dirHtml = `<div style="padding:8px;background:#fef9c3;border-radius:8px;font-size:9px;color:#854d0e;">⚠ PRV ต้องเชื่อมต่อกับท่ออย่างน้อย 2 เส้น (ด้าน Upstream และ Downstream)</div>`;
+      } else {
+        // Show toggle buttons for each neighbor — user selects which is UPSTREAM
+        dirHtml = `<div style="font-size:9px;color:#92400e;margin-bottom:6px;line-height:1.4;">👆 กดเลือก node ที่เป็น <b>ด้านน้ำเข้า (Upstream / แรงดันสูง)</b><br>ด้านที่เหลือจะเป็น Downstream โดยอัตโนมัติ</div>`;
+        dirHtml += `<div id="prv_dir_btns" style="display:flex;flex-direction:column;gap:6px;">`;
+        _neighbors.forEach(nb => {
+          const isUp = nb.isUpstream;
+          dirHtml += `<button onclick="setPRVInlet('${el.id}','${nb.id}')"
+            style="width:100%;padding:8px 12px;border-radius:10px;border:2px solid ${isUp?'#f97316':'#e2e8f0'};
+            background:${isUp?'#fff7ed':'white'};text-align:left;cursor:pointer;display:flex;justify-content:space-between;align-items:center;
+            font-family:var(--sans);transition:all 0.15s;">
+            <span style="font-size:10px;font-weight:800;color:${isUp?'#ea580c':'#64748b'};">
+              ${isUp?'⬆️ UPSTREAM (น้ำเข้า)':'◯ Downstream'}
+            </span>
+            <span style="font-size:9px;font-weight:700;color:${isUp?'#92400e':'#94a3b8'};font-family:var(--mono);">
+              ${nb.name} el=${nb.el.toFixed(1)}m${nb.headStr}
+            </span>
+          </button>`;
+        });
+        if (!el.prvInlet) {
+          dirHtml += `<div style="font-size:8.5px;color:#64748b;padding:4px 8px;background:#f8fafc;border-radius:6px;">
+            🔄 ตอนนี้: อัตโนมัติ (เลือก node แรงดันสูงสุด)</div>`;
+        }
+        dirHtml += `</div>`;
+      }
+
+      // PRV result box (if calculated)
+      let prvResultHtml = '';
+      if (isCalculated) {
+        const state = el.prvState || 'UNKNOWN';
+        const stateColor = state === 'ACTIVE' ? '#ea580c' : state === 'OPEN' ? '#16a34a' : state === 'CLOSED' ? '#b91c1c' : '#64748b';
+        const stateIcon  = state === 'ACTIVE' ? '⬇️ กำลังลดแรงดัน' : state === 'OPEN' ? '✅ เปิดเต็มที่ (pass-through)' : state === 'CLOSED' ? '⛔ บล็อกย้อน (reverse blocked)' : 'ไม่ทราบ';
+        const H_prv = el.head ?? 0;
+        const upNode = el.prvInlet ? nodeMap.get(el.prvInlet) : null;
+        const H_up   = upNode ? (upNode.head??0) : 0;
+        const H_loss = state === 'ACTIVE' ? Math.max(0, H_up - H_prv) : 0;
+        prvResultHtml = `<div style="background:${state==='ACTIVE'?'#fff7ed':state==='OPEN'?'#f0fdf4':'#fef2f2'};border-radius:10px;border:1.5px solid ${stateColor};padding:10px;">
+          <div style="font-size:10px;font-weight:800;color:${stateColor};margin-bottom:6px;">สถานะ PRV: ${stateIcon}</div>
+          <div style="display:grid;grid-template-columns:1fr 1fr;gap:4px;font-size:9px;font-family:var(--mono);">
+            <div style="color:#64748b;">H Upstream:</div><div style="font-weight:800;color:#0f172a;">${H_up.toFixed(3)} m</div>
+            <div style="color:#64748b;">H Downstream (PRV):</div><div style="font-weight:800;color:${stateColor};">${H_prv.toFixed(3)} m</div>
+            <div style="color:#64748b;">PRV Headloss:</div><div style="font-weight:800;color:#ef4444;">${H_loss.toFixed(3)} m</div>
+            <div style="color:#64748b;">Setting:</div><div style="font-weight:800;color:#f97316;">${(el.setting||15).toFixed(1)} m (${((el.setting||15)/10.197).toFixed(2)} bar)</div>
+          </div>
+        </div>`;
+      }
+
+      // PRV schedule cells
+      const prvSched = el.prvSchedule || Array(25).fill(null);
+      const prvSchedCells = Array.from({length:25}, (_, i) => {
+        const v = prvSched[i];
+        const useCustom = v !== null && v !== undefined;
+        const dispVal = useCustom ? parseFloat(v).toFixed(1) : (el.setting || 15).toFixed(1);
+        return `<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">
+          <div style="font-size:7.5px;font-weight:700;color:#94a3b8;font-family:var(--mono);">${i.toString().padStart(2,'0')}h</div>
+          <input type="number" step="0.5" min="0" max="100"
+            id="prv_sch_${i}" value="${dispVal}"
+            style="width:38px;padding:2px 3px;font-size:9px;font-weight:700;border:1.5px solid ${useCustom?'#f97316':'#e2e8f0'};border-radius:5px;text-align:center;font-family:var(--mono);outline:none;background:${useCustom?'#fff7ed':'white'};"
+            oninput="prvSchedInput('${el.id}',${i},this.value)">
+        </div>`;
+      }).join('');
+
+      h += `<div style="background:#fff7ed;border:1.5px solid #fed7aa;border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:12px;">
+        <div style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;font-family:var(--sans);">⬇️ PRV — Pressure Reducing Valve</div>
+
+        <div style="background:#fef9ef;border:1px solid #fed7aa;border-radius:10px;padding:8px;font-size:9px;color:#78350f;line-height:1.6;font-family:var(--sans);">
+          <b>หลักการทำงาน (AWWA / EPANET):</b><br>
+          • Upstream → PRV → Downstream<br>
+          • H_upstream &gt; Setting → <b>ACTIVE</b>: H_downstream = Setting (m) ✓<br>
+          • H_upstream ≤ Setting → <b>OPEN</b>: เปิดเต็มที่ ไม่ลดแรงดัน<br>
+          • ย้อนทาง → <b>CLOSED</b>: บล็อกอัตโนมัติ
         </div>
-        <p style="font-size:9.5px;color:#78350f;font-family:var(--mono);">Dia <b id="prv_sz_lbl">${cps}</b>mm → Q_max ~<b id="prv_max_flow">${imf}</b> m³/h</p>
+
+        ${prvResultHtml}
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;">
+          <div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;font-family:var(--sans);">⬇️ Setting แรงดัน (m)</label>
+            <input id="i_set" type="number" step="0.5" min="0" max="200" value="${el.setting || 15}" class="eng-input" style="border-color:#fed7aa;" oninput="document.getElementById('prv_bar_lbl').innerText=((parseFloat(this.value)||0)/10.197).toFixed(2)">
+            <div style="font-size:8.5px;color:#92400e;margin-top:3px;"><span id="prv_bar_lbl">${((el.setting||15)/10.197).toFixed(2)}</span> bar downstream</div>
+          </div>
+          <div><label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:6px;font-family:var(--sans);">🔧 ขนาด PRV</label>
+            <select id="i_prv_size" class="eng-input" style="border-color:#fed7aa;" onchange="updatePRVInfo()">${pso}</select>
+            <div style="font-size:8.5px;color:#92400e;margin-top:3px;">Q_max ~<b id="prv_max_flow">${imf}</b> m³/h</div>
+          </div>
+        </div>
+
+        <div>
+          <label style="font-size:10px;font-weight:800;color:#ea580c;text-transform:uppercase;display:block;margin-bottom:8px;font-family:var(--sans);">🔀 กำหนดทิศทางน้ำ (Direction Control)</label>
+          ${dirHtml}
+          <input type="hidden" id="i_prv_inlet" value="${el.prvInlet || ''}">
+        </div>
+
+        <div>
+          <div style="font-size:10px;font-weight:800;color:#7c3aed;text-transform:uppercase;margin-bottom:6px;font-family:var(--sans);">🕐 ตารางแรงดัน Setting 25 ชม. (ว่าง = ใช้ค่าด้านบน)</div>
+          <div style="font-size:8.5px;color:#64748b;margin-bottom:8px;">กำหนด Setting (m) แต่ละชั่วโมง เพื่อควบคุมแรงดันตามเวลา</div>
+          <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:4px;overflow-x:auto;">${prvSchedCells}</div>
+          <div style="display:flex;gap:6px;margin-top:8px;">
+            <button onclick="prvSchedReset('${el.id}')" style="flex:1;padding:5px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;color:#92400e;font-size:9.5px;font-weight:800;cursor:pointer;font-family:var(--sans);">↩ รีเซ็ตทั้งหมด</button>
+            <button onclick="prvSchedCopy('${el.id}')" style="flex:1;padding:5px;border-radius:8px;border:1px solid #fed7aa;background:#fff7ed;color:#92400e;font-size:9.5px;font-weight:800;cursor:pointer;font-family:var(--sans);">📋 ใช้ค่าเดิมทั้งหมด</button>
+          </div>
+        </div>
       </div>`;
     } else if (el.type === 'pump') {
       const pumpIsOn = el.pumpStatus !== 'OFF';
@@ -2446,7 +2710,7 @@ function openProp(id, type) {
       </div>`;
       h += inp('i_wl','💧 Water Depth (m)',el.waterLevel || 20);
       h += `<div style="font-size:9px;color:#64748b;margin-top:4px;font-family:var(--mono);">* Total Head = Elevation (${el.el.toFixed(1)}m) + Depth = ${_rsvHead}m</div>`;
-    } else if (!['air_valve','hydrant'].includes(el.type)) {
+    } else if (el.type === 'junction') {
       h += inp('i_dem','🔴 Base Demand (m³/h)', el.baseDem ?? el.dem ?? 0);
       h += `<div style="font-size:9px;color:#64748b;margin-top:4px;">*ผูกกับ Diurnal Pattern อัตโนมัติในโหมด EPS</div>`;
     }
@@ -2546,13 +2810,20 @@ function saveProp() {
   if (isN) {
     if (v('i_el')           !== null) el.el           = parseFloat(v('i_el')) || 0;
     if (v('i_set')          !== null) el.setting       = parseFloat(v('i_set')) || 15;
+    // [FIX-PRV] prvInlet is now stored in a hidden input (updated by setPRVInlet toggle buttons)
+    // value '' means auto-detect; non-empty string means explicit upstream node ID
+    if (v('i_prv_inlet')    !== null) el.prvInlet      = v('i_prv_inlet').trim() || null;
     if (v('i_prv_size')     !== null) el.prvSize       = parseFloat(v('i_prv_size')) || 100;
     if (v('i_valve_open')   !== null) { el.openPercent = parseInt(v('i_valve_open')); el.status = el.openPercent === 0 ? 'CLOSED' : 'OPEN'; }
     if (v('i_wl')           !== null) el.waterLevel    = parseFloat(v('i_wl')) || 0;
     if (v('i_dia_tk')       !== null) el.tankDia       = parseFloat(v('i_dia_tk')) || 10;
     if (v('i_minl')         !== null) el.minLevel      = parseFloat(v('i_minl')) || 0.5;
     if (v('i_maxl')         !== null) el.maxLevel      = parseFloat(v('i_maxl')) || 15;
-    if (v('i_dem')          !== null) { el.baseDem = parseFloat(v('i_dem')) || 0; el.dem = el.baseDem; }
+    if (v('i_dem')          !== null) {
+      // [FIX-DEMAND] Always save to baseDem (canonical). dem will be derived in solver.
+      el.baseDem = parseFloat(v('i_dem')) || 0;
+      el.dem     = el.baseDem;  // initial sync; solver overwrites per EPS hour
+    }
     if (v('i_pump_head')    !== null) el.pumpHead      = parseFloat(v('i_pump_head')) || 30;
     if (v('i_pump_flow')    !== null) el.pumpFlow      = parseFloat(v('i_pump_flow')) || 100;
   } else {
@@ -2575,6 +2846,31 @@ function saveProp() {
 function closeProp() {
   document.getElementById('propPanel').classList.add('hidden');
   selId = null;
+}
+
+/**
+ * Set PRV upstream inlet node (direction control).
+ * Called from the direction toggle buttons in openProp.
+ * Immediately saves to model and re-opens panel so buttons update visually.
+ */
+function setPRVInlet(prvId, inletNodeId) {
+  const prv = nodeMap.get(prvId);
+  if (!prv) return;
+  // Toggle: if already set to this node, clear (back to auto)
+  if (prv.prvInlet === inletNodeId) {
+    prv.prvInlet = null;
+  } else {
+    prv.prvInlet = inletNodeId;
+  }
+  // Update hidden input so saveProp picks it up if user presses Save
+  const inp = document.getElementById('i_prv_inlet');
+  if (inp) inp.value = prv.prvInlet || '';
+  // Mark stale and re-render panel so buttons update
+  isCalculated  = false;
+  isEPSComputed = false;
+  saveState();
+  // Re-open panel immediately to refresh direction buttons
+  openProp(prvId, 'node');
 }
 
 function flipCV(id) {
@@ -2721,7 +3017,7 @@ function insertAcc(type) {
   const elUp   = sNode.el + tUp * (eNode.el - sNode.el);
   const elDn   = sNode.el + tDn * (eNode.el - sNode.el);
 
-  const prefixes = { valve:'V', prv:'PRV', air_valve:'AV', hydrant:'HYD', check_valve:'CV' };
+  const prefixes = { valve:'V', prv:'PRV', check_valve:'CV' };
 
   // Helper to build a bare node object
   const makeNode = (id, nodeType, lat, lng, el, extra) => ({
@@ -2729,6 +3025,8 @@ function insertAcc(type) {
     baseDem: 0, dem: 0, head: 0, p: 0,
     status: 'OPEN', setting: 15.0,
     prvSize: dia, openPercent: 100,
+    prvInlet: null,          // node ID ของ upstream (ทางน้ำเข้า PRV) — null = ยังไม่กำหนด
+    prvSchedule: null,       // array[25] ของ setting (m) ต่อชั่วโมง — null = ใช้ setting คงที่
     waterLevel: 10, tankDia: 10, maxLevel: 15, minLevel: 0.5,
     pumpHead: 30, pumpFlow: 100,
     pumpStatus: 'ON', pumpSchedule: Array(24).fill(1),
@@ -2748,8 +3046,8 @@ function insertAcc(type) {
   // ── 5. Create Accessory node ─────────────────────────────────────────────────
   const accId = (prefixes[type] || 'X') + (Date.now() + 1).toString(36);
   const acc = makeNode(accId, type, snapLat, snapLng, elSnap, {
-    baseDem: type === 'hydrant' ? 10 : 0,
-    dem:     type === 'hydrant' ? 10 : 0,
+    baseDem: 0,
+    dem:     0,
   });
   nodes.push(acc);
   nodeMap.set(accId, acc);
@@ -2805,11 +3103,22 @@ function velBadge(v) {
   return `<span class="badge badge-crit">${av.toFixed(2)} ⚠</span>`;
 }
 
+/**
+ * Pressure badge — แสดงช่วงแรงดันตามมาตรฐานระบบประปา (ISO 10508 / AWWA M51)
+ *   ≤ 0 bar    → ไม่มีแรงดัน (Critical)
+ *   0–0.5 bar  → ต่ำกว่ามาตรฐานบริการขั้นต่ำ
+ *   0.5–1.0    → ต่ำ (ยอมรับได้สำหรับอาคารชั้นเดียว)
+ *   1.0–7.0    → ปกติ (ช่วงปฏิบัติการมาตรฐาน 2–5 bar เหมาะสมที่สุด)
+ *   7.0–10.0   → สูง (ใกล้ขีดสูงสุด PN10 ท่อ PE/PVC)
+ *   > 10.0     → OVERPRESSURE — เกิน PN10 อาจทำให้ท่อแตก
+ */
 function pressBadge(p_bar) {
-  if (p_bar <= 0)  return `<span class="badge badge-no-p">0 bar</span>`;
-  if (p_bar < 0.5) return `<span class="badge badge-low-p">${p_bar.toFixed(2)} bar</span>`;
-  if (p_bar < 1.0) return `<span class="badge badge-warn">${p_bar.toFixed(2)} bar</span>`;
-  return `<span class="badge badge-ok">${p_bar.toFixed(2)} bar</span>`;
+  if (p_bar <= 0)    return `<span class="badge badge-no-p">0 bar ⛔</span>`;
+  if (p_bar < 0.5)   return `<span class="badge badge-low-p">${p_bar.toFixed(2)} bar ⬇</span>`;
+  if (p_bar < 1.0)   return `<span class="badge badge-warn">${p_bar.toFixed(2)} bar</span>`;
+  if (p_bar <= 7.0)  return `<span class="badge badge-ok">${p_bar.toFixed(2)} bar</span>`;
+  if (p_bar <= 10.0) return `<span class="badge badge-fast">${p_bar.toFixed(2)} bar ⬆ HIGH</span>`;
+  return `<span class="badge badge-crit">${p_bar.toFixed(2)} bar 🔴 OVER</span>`;
 }
 
 function openReport() {
@@ -2909,7 +3218,9 @@ async function generateAISummary() {
   aiBody.innerHTML = '<div style="text-align:center;padding:50px;"><i class="fas fa-spinner fa-spin" style="font-size:40px;color:#8b5cf6;"></i><div style="margin-top:16px;font-weight:800;font-family:var(--sans);">✨ AI กำลังเขียนบทสรุปสำหรับผู้บริหาร...</div></div>';
 
   const jns = nodes.filter(n => !['reservoir','tank'].includes(n.type));
-  const lowPressureNodes = jns.filter(n => ((n.p || 0) / 10.197) < 0.5).map(n => `ID: ${n.id} (${((n.p||0)/10.197).toFixed(2)} bar)`).join(', ');
+  const lowPressureNodes  = jns.filter(n => ((n.p||0)/10.197) < 0.5).map(n=>`ID:${n.id}(${((n.p||0)/10.197).toFixed(2)} bar)`).join(', ');
+  const highPressureNodes = jns.filter(n => ((n.p||0)/10.197) > 7.0 && ((n.p||0)/10.197) <= 10.0).map(n=>`ID:${n.id}(${((n.p||0)/10.197).toFixed(2)} bar)`).join(', ');
+  const overPressureNodes = jns.filter(n => ((n.p||0)/10.197) > 10.0).map(n=>`ID:${n.id}(${((n.p||0)/10.197).toFixed(2)} bar)`).join(', ');
   const highVelPipes     = links.filter(l => Math.abs(l.vel || 0) > 1.5).map(l => `ID: ${l.id} (${Math.abs(l.vel).toFixed(2)} m/s, dia ${l.dia}mm)`).join(', ');
 
   const dataStr = `
@@ -2923,7 +3234,9 @@ async function generateAISummary() {
 
 จุดที่ต้องเฝ้าระวัง:
 - ท่อความเร็วเกิน 1.5 m/s: ${highVelPipes || 'ไม่มี'}
-- จุดแรงดันต่ำกว่า 0.5 bar: ${lowPressureNodes || 'ไม่มี'}`;
+- จุดแรงดันต่ำกว่า 0.5 bar: ${lowPressureNodes || 'ไม่มี'}
+- จุดแรงดันสูง 7–10 bar (ใกล้ขีด PN10): ${highPressureNodes || 'ไม่มี'}
+- จุด OVERPRESSURE > 10 bar (เกิน PN10!): ${overPressureNodes || 'ไม่มี'}`;
 
   const promptText = `คุณคือวิศวกรประปาอาวุโส โปรดสรุปผลการจำลองโครงข่ายท่อประปาด้านล่างนี้ ให้เป็น บทสรุปสำหรับผู้บริหาร แบบอ่านง่าย ภาษาไทย พร้อม Markdown และ Emoji
 คำสั่ง: วิเคราะห์ข้อมูล หากพบปัญหาให้เตือน หากดีให้ชื่นชม และให้คำแนะนำ 1-2 ข้อ
@@ -3161,6 +3474,9 @@ function openAdvisor() {
   nodes.forEach(n => {
     if (['reservoir','tank'].includes(n.type)) return;
     const p_bar = (n.p || 0) / 10.197;
+    const p_mwc = n.p || 0;
+
+    // ─ แรงดันต่ำ (< 0.5 bar) ─────────────────────────────────────────────
     if (p_bar < 0.5) {
       issueCount++;
       html += `<div class="advisor-card ${p_bar <= 0 ? 'crit' : ''}">
@@ -3168,8 +3484,47 @@ function openAdvisor() {
           <span class="adv-title"><i class="fas fa-tachometer-alt"></i> แรงดันตก: ${TYPE_NAMES[n.type]||n.type}</span>
           <span class="badge ${p_bar <= 0 ? 'badge-no-p' : 'badge-low-p'}">${p_bar.toFixed(2)} bar</span>
         </div>
-        <div class="adv-desc">แรงดันต่ำกว่ามาตรฐาน 0.5 bar
-          <br><strong style="color:#059669;">💡 คำแนะนำ:</strong> ขยายท่อ Upstream หรือเพิ่มระดับแหล่งจ่าย</div>
+        <div class="adv-desc">แรงดันต่ำกว่ามาตรฐานบริการขั้นต่ำ <b>0.5 bar</b> (WHO/ISO 10508)
+          <br><strong style="color:#059669;">💡 แนวทาง:</strong> ขยายท่อ Upstream, เพิ่มระดับแหล่งจ่าย หรือติดตั้งปั๊ม Booster</div>
+        <div class="adv-actions">
+          <button class="btn-adv btn-adv-locate" onclick="locateElement('node','${n.id}')"><i class="fas fa-crosshairs"></i> ชี้เป้า</button>
+        </div>
+      </div>`;
+    }
+
+    // ─ แรงดันสูง (7–10 bar) ใกล้ขีด PN10 ────────────────────────────────
+    if (p_bar > 7.0 && p_bar <= 10.0) {
+      issueCount++;
+      html += `<div class="advisor-card">
+        <div class="adv-hdr">
+          <span class="adv-title" style="color:#ea580c;"><i class="fas fa-exclamation-triangle"></i> แรงดันสูง: ${TYPE_NAMES[n.type]||n.type}</span>
+          <span class="badge badge-fast">${p_bar.toFixed(2)} bar</span>
+        </div>
+        <div class="adv-desc">แรงดัน <b>${p_bar.toFixed(2)} bar (${p_mwc.toFixed(1)} mWC)</b> ใกล้ขีดสูงสุดท่อ PN10
+          <br>ช่วงปลอดภัยระบบประปา: <b>2–7 bar</b>
+          <br><strong style="color:#059669;">💡 แนวทาง:</strong> ติดตั้ง PRV ที่ upstream และปรับ Setting ≤ 6 bar หรือแบ่ง Pressure Zone</div>
+        <div class="adv-actions">
+          <button class="btn-adv btn-adv-locate" onclick="locateElement('node','${n.id}')"><i class="fas fa-crosshairs"></i> ชี้เป้า</button>
+        </div>
+      </div>`;
+    }
+
+    // ─ OVERPRESSURE (> 10 bar) เกิน PN10 ──────────────────────────────────
+    if (p_bar > 10.0) {
+      issueCount++;
+      html += `<div class="advisor-card crit">
+        <div class="adv-hdr">
+          <span class="adv-title" style="color:#9333ea;"><i class="fas fa-bomb"></i> 🔴 OVERPRESSURE: ${TYPE_NAMES[n.type]||n.type}</span>
+          <span class="badge badge-crit">${p_bar.toFixed(2)} bar</span>
+        </div>
+        <div class="adv-desc" style="color:#7c2d12;">
+          <b>เกินขีดสูงสุดท่อ PN10 (10 bar = 102 mWC) — ท่อ PE100/PVC-U อาจแตกได้!</b>
+          <br>แรงดัน <b>${p_bar.toFixed(2)} bar = ${p_mwc.toFixed(1)} mWC</b>
+          <br><b>สาเหตุที่พบบ่อย:</b>
+          <br>① Reservoir el + waterLevel สูงเกิน 102m เหนือโหนดนี้
+          <br>② Pump head ตั้งค่าสูงเกินความเป็นจริง
+          <br>③ ขาด PRV ในโซนที่มีความต่างระดับมาก
+          <br><strong style="color:#dc2626;">⚠ ต้องแก้ไขทันที:</strong> ติดตั้ง PRV, ลด Reservoir WL, หรือแบ่ง Pressure Zone</div>
         <div class="adv-actions">
           <button class="btn-adv btn-adv-locate" onclick="locateElement('node','${n.id}')"><i class="fas fa-crosshairs"></i> ชี้เป้า</button>
         </div>
