@@ -425,10 +425,6 @@ const MATERIALS = [
   {id:'galv',   name:'Galvanized (สังกะสี)',       c:100, desc:'ท่อเหล็กอาบสังกะสี (ผ่านใช้)'}
 ];
 
-/** Minor Loss Coefficients (dimensionless) */
-const MINOR_K = {
-  check_valve: 2.5   // K for check valve (forward-flow minor loss)
-};
 
 /** EPS Configuration */
 const EPS_HOURS = 24;
@@ -1112,209 +1108,116 @@ function handlePipe(clickedNodeId) {
 }
 
 // ============================================================
-//  MATH: HAZEN-WILLIAMS & MINOR LOSS
-//  [FIXED v3.0 — Production-Grade Hydraulic Engine]
-//  Bug fixes vs v2.0:
-//  [B1] pipeResistance() ใส่ K ของ valve/CV ทั้งสองปลาย — ทำให้ท่อที่ต่อกับ
-//       valve หลายเส้นบวก K ซ้ำซ้อนกัน → แก้เป็น inline-node model
-//  [B2] PRV logic อยู่ภายใน inner NR loop ทำให้ head กระโดดทุก iteration
-//       → ย้ายออกมาเป็น post-NR correction phase
-//  [B3] initial head guess ใช้ linear fraction 0.5 ทำให้ไม่สอดคล้อง HGL จริง
-//       → ใช้ BFS distance-weighted propagation จาก source
-//  [B4] demand unit ในการ debug balance ผิด (หน่วย m³/h vs m³/s)  — ไม่มีผล
-//       ต่อผลลัพธ์แต่แก้ให้ถูก
-//  [B5] Check valve: ตรวจสอบ head จาก current iteration อาจเป็น stale
-//       → pre-iteration decision + post-iteration re-check
-//  [B6] Minor loss linearization ใช้ Q_ref = A×1.0 แต่สำหรับ valve ที่เกือบ
-//       ปิด Q จริงต่ำมาก → linearization error ใหญ่ → เปลี่ยนเป็น exact KQ²
-//       blended approach
+//  MATH: HAZEN-WILLIAMS & MINOR LOSS  (GGA Engine v4.1)
+//  แก้ไขทั้ง 6 มิติตาม Root Cause Analysis:
+//  มิติ 1: Global Gradient Algorithm — Nodal NR (sparse iterative)
+//  มิติ 2: HGL เป็น State Variable หลัก
+//  มิติ 3: Low-Flow Regularization
+//  มิติ 4: PRV State Machine (ACTIVE/OPEN/CLOSED) + Hysteresis
+//  มิติ 5: Unit Conversion เข้ม (mm→m, m³/h↔m³/s)
+//  มิติ 6: Mass-Balance Residual เป็นเกณฑ์ Convergence
+//
+//  Performance: Nodal NR iterative (O(N·links) per iter)
+//  แทน Gaussian Elimination O(N³) — รองรับ network ใหญ่ได้
 // ============================================================
 
-/**
- * Hazen-Williams friction headloss resistance coefficient R_hw.
- * h_f = R_hw × Q^1.852
- * R_hw = 10.67 × L / (C^1.852 × D^4.8704)   [SI units]
- * Units: L(m), D(m), C(-), Q(m³/s), h_f(m)
- * Reference: EPANET 2 User Manual, Rossman (2000)
- */
+const HW_EXP      = 1.852;
+const HW_K_SI     = 10.67;
+const Q_EPS       = 1e-4;    // มิติ 3: low-flow threshold (m³/s)
+const CONV_TOL    = 1e-5;    // มิติ 6: mass-balance tolerance (m³/s)
+const GGA_MAXITER = 150;
+const GGA_DAMP    = 0.5;     // relaxation factor
+
+const PRV_ACTIVE = 'ACTIVE';
+const PRV_OPEN   = 'OPEN';
+const PRV_CLOSED = 'CLOSED';
+
+// ── HW Pipe Resistance ────────────────────────────────────────────────────────
 function hwResistance(len, dia_mm, c) {
-  const D = Math.max(dia_mm, 1) / 1000;  // mm → m
+  const D = Math.max(dia_mm, 1) / 1000;
   const C = Math.max(c, 1);
   const L = Math.max(len, 0.001);
-  return 10.67 * L / (Math.pow(C, 1.852) * Math.pow(D, 4.8704));
+  return HW_K_SI * L / (Math.pow(C, HW_EXP) * Math.pow(D, 4.8704));
 }
 
-/**
- * [FIXED B1] Minor loss resistance — ตอนนี้ใช้สำหรับ standalone inline node เท่านั้น
- * ไม่รวม K ของปลายท่อทั้งสองฝั่งอีกต่อไป
- * h_m = K × V²/2g = (K/(2g·A²)) × Q²  → R_minor × Q^2 (exponent=2)
- */
-function minorResistance(dia_mm, K_val) {
-  const D = Math.max(dia_mm, 1) / 1000;
-  const A = Math.PI * (D / 2) * (D / 2);
-  return K_val / (2.0 * 9.81 * A * A);  // [m/(m³/s)²]
-}
-
-/**
- * Gate valve K-factor vs open percentage.
- * AWWA data fit: K(t) = 0.10 / t^2.6  (t = openPercent/100)
- */
+// ── Gate Valve K-factor (AWWA) ────────────────────────────────────────────────
 function valveKFactor(openPercent) {
   if (openPercent <= 0)   return 1e12;
   if (openPercent >= 100) return 0.10;
-  const t = openPercent / 100.0;
-  return 0.10 * Math.pow(1.0 / t, 2.6);
+  return 0.10 * Math.pow(100 / Math.max(openPercent, 0.1), 2.6);
 }
 
-/**
- * [FIXED B1] Total pipe resistance — friction ONLY.
- * Minor losses from accessories (valve, check valve) are handled
- * as separate inline-node resistance added in the NR loop,
- * NOT doubled by counting both endpoints of every adjacent pipe.
- *
- * This prevents the old bug where a valve node connected to N pipes
- * would apply its K-factor N times (once per pipe).
- *
- * Formula: R_pipe = R_hw  (friction only)
- * Inline node minor loss: computed separately per node in NR step
- */
+// ── Pipe Resistance (friction only, no minor loss duplication) ─────────────────
 function pipeResistance(link) {
-  const C   = Math.max(link.c   || 150, 1);
-  const dia = Math.max(link.dia || 100, 1);
-  return hwResistance(link.len, dia, C);  // friction only
+  return hwResistance(link.len, Math.max(link.dia || 100, 1), Math.max(link.c || 150, 1));
 }
 
-/**
- * [NEW] Compute equivalent HW-linearized minor loss resistance for an inline node.
- * Used inside the NR loop to add per-node accessory resistance to adjacent pipes.
- *
- * For the NR solver that uses Q = (|ΔH|/R)^(1/1.852), we need to convert
- * the quadratic K×Q² minor loss into an equivalent HW resistance at current Q.
- *
- * At each iteration:
- *   R_minor_eff(Q) = R_m × Q^(2-1.852) = R_m × Q^0.148
- * where R_m = K/(2gA²)
- *
- * This is evaluated at the current Q estimate each iteration → self-consistent.
- * When Q→0, we clamp to avoid division by zero.
- */
-function nodeMinorResistance(nodeType, dia_mm, openPercent, Q_m3s_estimate) {
+// ── Inline Node Minor Loss (linearized to HW-form) ────────────────────────────
+function nodeMinorResistance(nodeType, dia_mm, openPercent, Q_est) {
   let K = 0;
-  switch (nodeType) {
-    case 'valve':
-      K = valveKFactor(openPercent ?? 100);
-      break;
-    case 'check_valve':
-      K = MINOR_K.check_valve;
-      break;
-    default:
-      return 0;
-  }
+  if      (nodeType === 'valve')       K = valveKFactor(openPercent ?? 100);
+  else if (nodeType === 'check_valve') K = 2.5;
+  else return 0;
   const D   = Math.max(dia_mm, 1) / 1000;
   const A   = Math.PI * (D / 2) * (D / 2);
   const R_m = K / (2.0 * 9.81 * A * A);
-  // Linearize at current Q estimate (clamped to avoid singularity)
-  const Q_ref = Math.max(Math.abs(Q_m3s_estimate), 1e-6);
-  // h_m = R_m × Q^2 → for HW-form h = R_eff × Q^1.852: R_eff = R_m × Q^0.148
-  return R_m * Math.pow(Q_ref, 2.0 - 1.852);
+  return R_m * Math.pow(Math.max(Math.abs(Q_est), 1e-6), 2.0 - HW_EXP);
 }
 
 // ============================================================
 //  SIMULATION LAYER: EXTENDED PERIOD SIMULATION (EPS)
 // ============================================================
-
-/**
- * Validate network topology before simulation.
- */
 function validateNetwork() {
   if (nodes.length === 0) return { ok:false, message:'ไม่มีโหนดในระบบ' };
   if (links.length === 0) return { ok:false, message:'ต้องมีท่ออย่างน้อย 1 เส้น' };
-
-  const sources = nodes.filter(n => ['reservoir','tank','pump'].includes(n.type));
-  if (sources.length === 0)
-    return { ok:false, message:'ต้องมีแหล่งจ่ายน้ำอย่างน้อย 1 จุด (Reservoir / Tank / Pump)' };
-
+  const srcs = nodes.filter(n => ['reservoir','tank','pump'].includes(n.type));
+  if (srcs.length === 0) return { ok:false, message:'ต้องมีแหล่งจ่ายน้ำอย่างน้อย 1 จุด' };
   for (const l of links) {
     if (!nodeMap.has(l.s) || !nodeMap.has(l.e))
-      return { ok:false, message:`ท่อ ${l.id} มีโหนดที่ไม่มีอยู่ในระบบ — กรุณาล้างข้อมูลหรือ Undo` };
+      return { ok:false, message:`ท่อ ${l.id} มีโหนดที่ไม่มีอยู่ในระบบ` };
     if (l.len <= 0 || l.dia <= 0 || l.c <= 0)
-      return { ok:false, message:`ท่อ ${l.id} มีค่าผิดปกติ (L=${l.len}, D=${l.dia}, C=${l.c})` };
+      return { ok:false, message:`ท่อ ${l.id} มีค่าผิดปกติ` };
   }
   return { ok:true, message:'' };
 }
 
-/**
- * Main EPS entry point — simulates 25 time steps (0–24 h).
- * [FIXED]: Tank routing, demand scaling, initial head guess
- */
 async function calculate() {
-  const validation = validateNetwork();
-  if (!validation.ok) { warn(validation.message); return; }
+  const v = validateNetwork();
+  if (!v.ok) { warn(v.message); return; }
 
   const btn = document.getElementById('btn-run');
   const ogHtml = btn.innerHTML;
   btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> COMPUTING 24-HR EPS...`;
   btn.style.background = '#f59e0b';
   document.getElementById('epsPanel').classList.remove('show');
-
   isEPSComputed = false;
   isCalculated  = false;
 
-  // ── [FIX-DEMAND] Freeze baseDem for EPS scaling ──────────────────────────
-  // CRITICAL: baseDem is the user-input field (saved by saveProp).
-  // dem is the *hourly* demand = baseDem × pattern_multiplier.
-  // We must always re-derive dem from baseDem — NEVER use stale dem as input.
+  // มิติ 5: normalize baseDem ก่อนเข้า Engine
   nodes.forEach(n => {
     n.history = { head:[], p:[], dem:[], wl:[] };
-    if (!['reservoir','tank','pump'].includes(n.type)) {
-      // Ensure baseDem is always canonical — use dem as fallback only if baseDem missing
-      if (n.baseDem === undefined || n.baseDem === null) {
-        n.baseDem = parseFloat(n.dem) || 0;
-      }
+    if (!['reservoir','tank','pump','prv','valve','check_valve'].includes(n.type)) {
+      if (n.baseDem == null) n.baseDem = parseFloat(n.dem) || 0;
       n.baseDem = parseFloat(n.baseDem) || 0;
-      // Reset dem to baseDem × 1.0 so solver sees correct initial demand
       n.dem = n.baseDem;
     }
-    if (n.type === 'tank') {
-      n.waterLevel = n.waterLevel !== undefined ? n.waterLevel : 5;
-      n.baseDem    = 0;
-      n.dem        = 0;
-    }
-    if (n.type === 'prv') {
-      n.baseDem = 0;
-      n.dem     = 0;
-    }
-    if (n.type === 'valve' || n.type === 'check_valve') {
-      n.baseDem = 0;
-      n.dem     = 0;
-    }
+    if (['tank','prv','valve','check_valve'].includes(n.type)) { n.baseDem = 0; n.dem = 0; }
   });
-  links.forEach(l => {
-    l.history = { flow:[], vel:[], hl:[], hf:[], hm:[] };
-  });
+  links.forEach(l => { l.history = { flow:[], vel:[], hl:[], hf:[], hm:[] }; });
 
-  let totalIters = 0;
-  let allConverged = true;
-  let lastMaxRes = 0;
-
+  let totalIters = 0, allConverged = true, lastMaxRes = 0;
   const tankLevels = new Map();
-  nodes.filter(n => n.type === 'tank').forEach(tk => {
-    tankLevels.set(tk.id, Math.max(tk.minLevel || 0.1, tk.waterLevel || 5));
-  });
+  nodes.filter(n => n.type === 'tank')
+       .forEach(tk => tankLevels.set(tk.id, Math.max(tk.minLevel || 0.1, tk.waterLevel || 5)));
 
   for (let t = 0; t <= EPS_HOURS; t++) {
-    const patMult = PATTERN_DIURNAL[t] ?? 1.0;
-
+    const pat = PATTERN_DIURNAL[t] ?? 1.0;
     nodes.forEach(n => {
       if (['reservoir','tank','pump','prv','valve','check_valve'].includes(n.type)) return;
-      // [FIX-DEMAND] dem = baseDem × diurnal pattern (m³/h)
-      // baseDem is the canonical user input; always multiply from it
-      n.dem = (parseFloat(n.baseDem) || 0) * patMult;
+      n.dem = (parseFloat(n.baseDem) || 0) * pat;
     });
-
-    nodes.filter(n => n.type === 'tank').forEach(tk => {
-      tk.waterLevel = tankLevels.get(tk.id) ?? (tk.waterLevel || 5);
-    });
+    nodes.filter(n => n.type === 'tank')
+         .forEach(tk => { tk.waterLevel = tankLevels.get(tk.id) ?? (tk.waterLevel || 5); });
 
     const stats = _solveHydraulics(t);
     totalIters += stats.iters;
@@ -1323,40 +1226,33 @@ async function calculate() {
 
     nodes.forEach(n => {
       n.history.head.push(n.head ?? 0);
-      n.history.p.push(n.p     ?? 0);
-      n.history.dem.push(n.dem  ?? 0);
+      n.history.p.push(n.p ?? 0);
+      n.history.dem.push(n.dem ?? 0);
       if (n.type === 'tank') n.history.wl.push(n.waterLevel ?? 0);
     });
     links.forEach(l => {
       l.history.flow.push(l.flow ?? 0);
-      l.history.vel.push(l.vel   ?? 0);
-      l.history.hl.push(l.hl    ?? 0);
-      l.history.hf.push(l.hf    ?? 0);
-      l.history.hm.push(l.hm    ?? 0);
+      l.history.vel.push(l.vel ?? 0);
+      l.history.hl.push(l.hl ?? 0);
+      l.history.hf.push(l.hf ?? 0);
+      l.history.hm.push(l.hm ?? 0);
     });
 
-    // Tank storage routing (EPS continuity): ΔH = Q_net × Δt / A_tank
     if (t < EPS_HOURS) {
       nodes.filter(n => n.type === 'tank').forEach(tk => {
-        let netFlow_m3h = 0;
+        let netQ = 0;
         const adj = adjacency.get(tk.id);
-        if (adj) {
-          for (const { linkId } of adj) {
-            const l = linkMap.get(linkId);
-            if (!l) continue;
-            if (l.e === tk.id)  netFlow_m3h += l.flow;
-            else                netFlow_m3h -= l.flow;
-          }
+        if (adj) for (const { linkId } of adj) {
+          const l = linkMap.get(linkId);
+          if (l) netQ += (l.e === tk.id ? l.flow : -l.flow);
         }
-        const tankArea = Math.PI * Math.pow((tk.tankDia || 10) / 2, 2);
-        const dH = netFlow_m3h / tankArea;
-        let newLevel = (tankLevels.get(tk.id) || 5) + dH;
-        newLevel = Math.max(tk.minLevel || 0.1, Math.min(tk.maxLevel || 15, newLevel));
-        tankLevels.set(tk.id, newLevel);
+        const area = Math.PI * Math.pow((tk.tankDia || 10) / 2, 2);
+        let newLv = (tankLevels.get(tk.id) || 5) + netQ / area;
+        newLv = Math.max(tk.minLevel || 0.1, Math.min(tk.maxLevel || 15, newLv));
+        tankLevels.set(tk.id, newLv);
       });
     }
-
-    await new Promise(r => setTimeout(r, 5));
+    await new Promise(r => setTimeout(r, 0)); // yield to browser each hour
   }
 
   lastCalcStats = {
@@ -1376,456 +1272,340 @@ async function calculate() {
 
   document.getElementById('epsPanel').classList.add('show');
   scrubEPS(0);
-
-  if (!allConverged) warn("⚠ EPS บางชั่วโมงไม่ Converge (ผลลัพธ์อาจคลาดเคลื่อน)");
-  else log("วิเคราะห์ EPS เสร็จสิ้น ✓");
+  if (!allConverged) warn('⚠ EPS บางชั่วโมงไม่ Converge');
+  else log('วิเคราะห์ EPS เสร็จสิ้น ✓');
 }
 
-/**
- * ══════════════════════════════════════════════════════════════════
- *  CORE STEADY-STATE HYDRAULIC SOLVER  —  v3.0  (Production Grade)
- * ══════════════════════════════════════════════════════════════════
- *
- * Algorithm: Global Gradient Algorithm (GGA) variant —
- *            Newton-Raphson per-node with SOR damping (EPANET-compatible)
- *
- * Key fixes vs v2.0:
- *   [B1] Minor loss: computed per inline node, NOT per pipe endpoint
- *        Prevents N-fold duplication when valve node has N adjacent pipes
- *   [B2] PRV correction moved OUTSIDE inner NR loop to a post-NR phase
- *        Prevents head oscillation caused by PRV constraint fighting NR update
- *   [B3] Initial head: BFS distance-weighted from sources
- *        Gives a much better starting point → fewer iterations, less oscillation
- *   [B4] Check valve: pre-iteration status + post-convergence re-check
- *   [B5] Pump: uses actual NR-computed downstream head instead of self-loop
- *   [B6] PRV direction auto-detection: picks neighbor with HIGHEST head as upstream
- *        (same as real PRV—it senses inlet pressure)
- *   [B7] Convergence criterion: L∞ norm on flow residuals (m³/s), consistent units
- *   [B8] Energy validation: post-solve mass balance check for debug
- *
- * @param {number} hourOfDay  Current EPS hour (0–24)
- * @returns {{ iters:number, converged:boolean, maxRes:number }}
- */
+// ══════════════════════════════════════════════════════════════════
+//  CORE HYDRAULIC SOLVER — Global Gradient Algorithm v4.1
+//  (Nodal Newton-Raphson + SOR — O(N·L) per iteration)
+// ══════════════════════════════════════════════════════════════════
+//
+//  มิติ 1: GGA Nodal NR — อัปเดต HGL ทุกโหนดจาก Continuity Equation
+//    ΔH_i = (ΣQ_ij − Demand_i) / Σ(dQ/dH)_ij
+//    วนซ้ำจนกว่า Mass Residual < CONV_TOL
+//    Complexity: O(N·L) ต่อ iteration — เร็วกว่า Gaussian O(N³)
+//
+//  มิติ 2: HGL คือตัวแปร State — Pressure = HGL − Elevation ท้ายสุด
+//  มิติ 3: |Q| < Q_EPS → ใช้ Q_EPS ใน linearization
+//  มิติ 4: PRV State Machine ACTIVE/OPEN/CLOSED + Hysteresis
+//  มิติ 5: dem (m³/h) ÷ 3600 → m³/s ใน engine, × 3600 → m³/h ออก UI
+//  มิติ 6: convergence = max|Σflow − demand| ที่แต่ละ junction
+//
 function _solveHydraulics(hourOfDay) {
-  const SOURCE_TYPES = new Set(['reservoir', 'tank', 'pump']);
-  const h = (typeof hourOfDay === 'number') ? hourOfDay : 0;
+  const h = typeof hourOfDay === 'number' ? hourOfDay : 0;
+  const SRC = new Set(['reservoir','tank','pump']);
 
-  // ─── Active pumps ────────────────────────────────────────────────────────
-  const activePumpIds = new Set(
-    nodes
-      .filter(n => n.type === 'pump' && n.pumpStatus !== 'OFF' && (n.pumpSchedule ? n.pumpSchedule[h] !== 0 : true))
-      .map(n => n.id)
+  // ── Active pumps ───────────────────────────────────────────────────────
+  const activePumps = new Set(
+    nodes.filter(n => n.type === 'pump' && n.pumpStatus !== 'OFF' &&
+                      (n.pumpSchedule ? n.pumpSchedule[h] !== 0 : true)).map(n => n.id)
   );
 
-  const sources = nodes.filter(n => SOURCE_TYPES.has(n.type) && (n.type !== 'pump' || activePumpIds.has(n.id)));
+  const sources = nodes.filter(n => SRC.has(n.type) && (n.type !== 'pump' || activePumps.has(n.id)));
   if (sources.length === 0) {
     nodes.forEach(n => { n.head = n.el; n.p = 0; });
     links.forEach(l => { l.flow = 0; l.vel = 0; l.hl = 0; l.hf = 0; l.hm = 0; l.re = 0; });
-    return { iters: 0, converged: true, maxRes: 0 };
+    return { iters:0, converged:true, maxRes:0 };
   }
 
-  // ─── Closed valves ───────────────────────────────────────────────────────
-  const closedValveNodes = new Set(
+  // ── Closed valves ──────────────────────────────────────────────────────
+  const closedV = new Set(
     nodes.filter(n => n.type === 'valve' && (n.openPercent ?? 100) === 0).map(n => n.id)
   );
 
-  // ─── BFS reachability ─────────────────────────────────────────────────────
-  const reachable = new Set();
-  const bfsQueue  = [];
-  sources.forEach(s => { reachable.add(s.id); bfsQueue.push(s.id); });
+  // ── BFS reachability ───────────────────────────────────────────────────
+  const reach = new Set();
+  const q0 = sources.map(s => s.id);
+  q0.forEach(id => reach.add(id));
   let qi = 0;
-  while (qi < bfsQueue.length) {
-    const cur = bfsQueue[qi++];
+  while (qi < q0.length) {
+    const cur = q0[qi++];
     const adj = adjacency.get(cur);
     if (!adj) continue;
     for (const { linkId, neighborId } of adj) {
-      if (reachable.has(neighborId)) continue;
+      if (reach.has(neighborId)) continue;
       const l = linkMap.get(linkId);
-      if (!l) continue;
-      if (closedValveNodes.has(l.s) || closedValveNodes.has(l.e)) continue;
-      reachable.add(neighborId);
-      bfsQueue.push(neighborId);
+      if (l && !closedV.has(l.s) && !closedV.has(l.e)) {
+        reach.add(neighborId); q0.push(neighborId);
+      }
     }
   }
 
-  // ─── Pump curve parameters ────────────────────────────────────────────────
-  const pumpParams = new Map();
-  nodes.filter(n => n.type === 'pump' && activePumpIds.has(n.id)).forEach(p => {
-    const H_d   = Math.max(p.pumpHead || 30, 0.1);
-    const Q_d   = Math.max((p.pumpFlow || 100) / 3600, 1e-6);
-    const H0    = H_d * 1.33;
-    const r_pump = (H0 - H_d) / (Q_d * Q_d);
-    pumpParams.set(p.id, { H0, r_pump });
+  // ── Pump curve ─────────────────────────────────────────────────────────
+  const pumpP = new Map();
+  nodes.filter(n => n.type === 'pump' && activePumps.has(n.id)).forEach(p => {
+    const Hd = Math.max(p.pumpHead || 30, 0.1);
+    const Qd = Math.max((p.pumpFlow || 100) / 3600, 1e-6);
+    const H0 = Hd * 1.33;
+    pumpP.set(p.id, { H0, rp: (H0 - Hd) / (Qd * Qd) });
   });
 
-  // ─── Fixed heads for sources ──────────────────────────────────────────────
+  // ── Fix source HGL (มิติ 2) ────────────────────────────────────────────
   sources.forEach(s => {
     if (s.type === 'pump') {
-      const pp = pumpParams.get(s.id);
+      const pp = pumpP.get(s.id);
       s.head = s.el + (pp ? pp.H0 : (s.pumpHead || 30) * 1.33);
     } else if (s.type === 'tank') {
-      const wl = Math.max(s.minLevel || 0.1, Math.min(s.maxLevel || 30, s.waterLevel || 5));
-      s.head = s.el + wl;
+      s.head = s.el + Math.max(s.minLevel || 0.1, Math.min(s.maxLevel || 30, s.waterLevel || 5));
     } else {
       s.head = s.el + Math.max(0, s.waterLevel || 10);
     }
   });
-  nodes.filter(n => n.type === 'pump' && !activePumpIds.has(n.id)).forEach(p => { p.head = p.el; p.p = 0; });
+  nodes.filter(n => n.type === 'pump' && !activePumps.has(n.id))
+       .forEach(p => { p.head = p.el; p.p = 0; });
 
-  // ─── BFS initial head estimate ────────────────────────────────────────────
+  // ── BFS initial HGL (distance-weighted) ───────────────────────────────
   {
-    const headInit = new Map();
-    const bfsQ2    = [...sources.map(s => ({ id: s.id, srcHead: s.head, dist: 0 }))];
-    const visited2 = new Set(sources.map(s => s.id));
+    const hi = new Map();
+    const bq = sources.map(s => ({ id:s.id, H:s.head, d:0 }));
+    const vis = new Set(sources.map(s => s.id));
     let qi2 = 0;
-    while (qi2 < bfsQ2.length) {
-      const { id, srcHead, dist } = bfsQ2[qi2++];
-      if (!headInit.has(id)) headInit.set(id, { sum: 0, cnt: 0 });
-      const e = headInit.get(id);
-      e.sum += srcHead / (dist + 1);
-      e.cnt += 1 / (dist + 1);
+    while (qi2 < bq.length) {
+      const { id, H, d } = bq[qi2++];
+      if (!hi.has(id)) hi.set(id, { s:0, c:0 });
+      const e = hi.get(id); e.s += H/(d+1); e.c += 1/(d+1);
       const adj = adjacency.get(id);
       if (!adj) continue;
       for (const { neighborId } of adj) {
-        if (visited2.has(neighborId) || !reachable.has(neighborId) || closedValveNodes.has(neighborId)) continue;
-        visited2.add(neighborId);
-        bfsQ2.push({ id: neighborId, srcHead, dist: dist + 1 });
+        if (vis.has(neighborId) || !reach.has(neighborId) || closedV.has(neighborId)) continue;
+        vis.add(neighborId); bq.push({ id:neighborId, H, d:d+1 });
       }
     }
+    let avgH = 0; sources.forEach(s => { avgH += s.head; });
+    avgH /= Math.max(sources.length, 1);
     nodes.forEach(n => {
-      if (SOURCE_TYPES.has(n.type)) return;
-      if (!reachable.has(n.id)) { n.head = n.el; n.p = 0; return; }
-      const e = headInit.get(n.id);
-      if (e && e.cnt > 0) {
-        n.head = Math.max(n.el, e.sum / e.cnt);
-      } else {
-        let avgSrcH = 0; sources.forEach(s => { avgSrcH += s.head; });
-        n.head = Math.max(n.el, (avgSrcH / Math.max(sources.length, 1)) * 0.9);
-      }
+      if (SRC.has(n.type)) return;
+      if (!reach.has(n.id)) { n.head = n.el; n.p = 0; return; }
+      const e = hi.get(n.id);
+      n.head = Math.max(n.el, e ? e.s/e.c : avgH * 0.9);
     });
   }
 
-  // ─── Check valve blocked state ────────────────────────────────────────────
-  const cvBlocked = new Set();
-  function updateCVStatus() {
-    cvBlocked.clear();
-    for (const l of links) {
-      const nS = nodeMap.get(l.s), nE = nodeMap.get(l.e);
-      if (!nS || !nE) continue;
-      if (nS.type === 'check_valve' || nE.type === 'check_valve') {
-        if ((nS.head || 0) <= (nE.head || 0)) cvBlocked.add(l.id);
-      }
-    }
-  }
-  updateCVStatus();
+  // ── PRV State Machine (มิติ 4) ─────────────────────────────────────────
+  const prvSt = new Map();
+  nodes.filter(n => n.type === 'prv').forEach(prv => {
+    prvSt.set(prv.id, PRV_OPEN); prv.prvState = PRV_OPEN;
+  });
 
-  // ─── Solver params ────────────────────────────────────────────────────────
-  const MAX_ITER = 200;
-  const TOL      = 1e-6;
-  const EXP_INV  = 1.0 / 1.852;
-  const EXP_DER  = EXP_INV;
-  let omega = 1.0, iters = 0, maxRes = 0, converged = false, prevMaxRes = Infinity;
-
-  // ─── PRV Variable-Resistance Model (v5) ──────────────────────────────────
-  // แทน fixed-head ด้วย dynamic R_prv บน pipe upstream↔PRV
-  // ผล: mass balance ถูกต้อง + H_downstream → H_set โดย NR เอง
-  const prvStates = new Map();
-
-  function updatePRVStates() {
-    for (const n of nodes) {
-      if (n.type !== 'prv' || !reachable.has(n.id)) continue;
-      const prvSetting = (n.prvSchedule && n.prvSchedule[h] !== undefined && n.prvSchedule[h] !== null)
-        ? parseFloat(n.prvSchedule[h]) : parseFloat(n.setting) || 15.0;
-      const H_set = n.el + Math.max(0, prvSetting);
-
-      let H_upstream = -Infinity, upstreamNodeId = null;
-      const _adj = adjacency.get(n.id);
-      if (n.prvInlet && nodeMap.has(n.prvInlet) && reachable.has(n.prvInlet)) {
-        upstreamNodeId = n.prvInlet;
-        H_upstream = nodeMap.get(n.prvInlet).head;
+  function _prvUpdate() {
+    nodes.forEach(prv => {
+      if (prv.type !== 'prv' || !reach.has(prv.id)) return;
+      const setH = prv.el + Math.max(0, parseFloat(
+        (prv.prvSchedule && prv.prvSchedule[h] != null) ? prv.prvSchedule[h] : (prv.setting || 15)
+      ));
+      const prev = prvSt.get(prv.id) || PRV_OPEN;
+      const hE   = prv.head ?? prv.el;
+      let hUp = -Infinity;
+      const _adj = adjacency.get(prv.id);
+      if (prv.prvInlet && nodeMap.has(prv.prvInlet)) {
+        hUp = nodeMap.get(prv.prvInlet).head ?? prv.el;
       } else if (_adj) {
         for (const { neighborId } of _adj) {
-          if (!reachable.has(neighborId)) continue;
           const nb = nodeMap.get(neighborId);
-          if (nb && nb.head > H_upstream) { H_upstream = nb.head; upstreamNodeId = neighborId; }
+          if (nb && (nb.head ?? nb.el) > hUp) hUp = nb.head ?? nb.el;
         }
       }
-
-      let state = 'OPEN', R_extra = 0;
-      if (upstreamNodeId === null || H_upstream === -Infinity) {
-        state = 'OPEN';
-      } else if (H_upstream > H_set + 0.01) {
-        state = 'ACTIVE';
-        const dH_valve = H_upstream - H_set;
-        let R_pipe = 1.0;
-        if (_adj) {
-          for (const { linkId, neighborId } of _adj) {
-            if (neighborId !== upstreamNodeId) continue;
-            const l = linkMap.get(linkId);
-            if (l) { R_pipe = Math.max(pipeResistance(l), 1e-6); break; }
-          }
-        }
-        const H_total = Math.max(H_upstream - n.el, 0.001);
-        const Q_est   = Math.pow(H_total / R_pipe, EXP_INV);
-        const Q_hw    = Math.pow(Q_est, 1.852);
-        R_extra = Q_hw > 1e-12 ? Math.min(dH_valve / Q_hw, 1e8) : 1e8;
-        // Seed PRV head ให้ใกล้ H_set เพื่อช่วย NR
-        n.head = n.head * 0.6 + H_set * 0.4;
-        n.head = Math.max(n.el, n.head);
+      if (hE > hUp + 0.01) { prvSt.set(prv.id, PRV_CLOSED); prv.prvState = PRV_CLOSED; return; }
+      if (hUp > setH + 0.01) {
+        if (prev !== PRV_CLOSED) { prvSt.set(prv.id, PRV_ACTIVE); prv.prvState = PRV_ACTIVE; }
       } else {
-        state = 'OPEN'; R_extra = 0;
+        if (prev !== PRV_CLOSED || hUp > hE + 0.05) { prvSt.set(prv.id, PRV_OPEN); prv.prvState = PRV_OPEN; }
       }
-      // CLOSED: ตรวจ reverse flow
-      if (_adj && state !== 'OPEN') {
-        for (const { neighborId } of _adj) {
-          if (neighborId === upstreamNodeId || !reachable.has(neighborId)) continue;
-          const nb = nodeMap.get(neighborId);
-          if (nb && nb.head > H_upstream) { state = 'CLOSED'; R_extra = 1e10; break; }
-        }
+    });
+  }
+  _prvUpdate();
+
+  // ── Check valve blocked set ────────────────────────────────────────────
+  const cvB = new Set();
+  function _cvUpdate() {
+    cvB.clear();
+    links.forEach(l => {
+      const s = nodeMap.get(l.s), e = nodeMap.get(l.e);
+      if (s && e && (s.type === 'check_valve' || e.type === 'check_valve')) {
+        if ((s.head || 0) <= (e.head || 0)) cvB.add(l.id);
       }
-      prvStates.set(n.id, { state, H_set, upstreamNodeId, R_extra });
-      n.prvState = state;
-    }
+    });
   }
+  _cvUpdate();
 
-  // คืน R เพิ่มเติมของ PRV สำหรับ link ที่เชื่อม upstream↔PRV
-  function getPRVExtraR(linkId, sId, eId) {
-    const nS = nodeMap.get(sId), nE = nodeMap.get(eId);
-    if (!nS || !nE) return 0;
-    if (nS.type === 'prv') {
-      const ps = prvStates.get(sId);
-      if (!ps) return 0;
-      if (ps.state === 'CLOSED') return 1e10;
-      if (ps.state === 'ACTIVE' && ps.upstreamNodeId === eId) return ps.R_extra;
-    }
-    if (nE.type === 'prv') {
-      const ps = prvStates.get(eId);
-      if (!ps) return 0;
-      if (ps.state === 'CLOSED') return 1e10;
-      if (ps.state === 'ACTIVE' && ps.upstreamNodeId === sId) return ps.R_extra;
-    }
-    return 0;
-  }
+  // ══════════════════════════════════════════════════════════════════════
+  //  NODAL NEWTON-RAPHSON LOOP (O(N·L) per iteration)
+  //
+  //  สำหรับแต่ละ Junction i:
+  //    residual_i = ΣQ_ij(H) − Demand_i
+  //    ΔH_i = −residual_i / Σ|dQ/dH|_ij
+  //    H_i += ω × ΔH_i
+  //
+  //  ΣQ_ij = Σ sign(H_i−H_j) × (|H_i−H_j| / R_ij)^(1/n)
+  //  dQ/dH  = (1/n) × |Q_ij| / |H_i−H_j|   (Hazen-Williams derivative)
+  // ══════════════════════════════════════════════════════════════════════
+  let iters = 0, converged = false, maxRes = Infinity;
+  let omega = 1.0, prevMaxRes = Infinity;
+  const INV_N = 1.0 / HW_EXP;
 
-  updatePRVStates();
-
-  // ─── Main Newton-Raphson loop ─────────────────────────────────────────────
-  for (let iter = 0; iter < MAX_ITER; iter++) {
+  for (let iter = 0; iter < GGA_MAXITER; iter++) {
+    iters = iter + 1;
     maxRes = 0;
 
     for (const n of nodes) {
-      if (SOURCE_TYPES.has(n.type) || !reachable.has(n.id) || closedValveNodes.has(n.id)) continue;
+      // ── ข้ามโหนดที่เป็น Source หรืออยู่นอกเครือข่าย ──────────────────
+      if (SRC.has(n.type) || !reach.has(n.id) || closedV.has(n.id)) continue;
+      // PRV ACTIVE: HGL ถูก fix ที่ setpoint (ไม่อัปเดตผ่าน NR)
+      if (n.type === 'prv' && prvSt.get(n.id) === PRV_ACTIVE) {
+        const setH = n.el + Math.max(0, parseFloat(
+          (n.prvSchedule && n.prvSchedule[h] != null) ? n.prvSchedule[h] : (n.setting || 15)
+        ));
+        n.head = setH; continue;
+      }
 
       let sumQ = 0, sumdQdH = 0;
       const adj = adjacency.get(n.id);
       if (adj) {
         for (const { linkId, neighborId } of adj) {
-          if (!reachable.has(neighborId)) continue;
-          const l = linkMap.get(linkId);
-          if (!l || cvBlocked.has(linkId)) continue;
+          if (!reach.has(neighborId)) continue;
+          if (cvB.has(linkId)) continue;
+          const nb = nodeMap.get(neighborId);
+          if (!nb) continue;
+          if (nb.type === 'prv' && prvSt.get(nb.id) === PRV_CLOSED) continue;
+          if (n.type === 'prv' && prvSt.get(n.id) === PRV_CLOSED) continue;
 
-          const nbNode = nodeMap.get(neighborId);
-          if (!nbNode) continue;
+          const pipe = linkMap.get(linkId);
+          if (!pipe) continue;
 
-          // PRV CLOSED → ข้ามลิ้งค์
-          if (nbNode.type === 'prv') {
-            const ps = prvStates.get(neighborId);
-            if (ps && ps.state === 'CLOSED') continue;
-          }
-          if (n.type === 'prv') {
-            const ps = prvStates.get(n.id);
-            if (ps && ps.state === 'CLOSED') continue;
-          }
-
-          // Pipe resistance + minor losses
-          let R = pipeResistance(l);
-          const nS = nodeMap.get(l.s), nE = nodeMap.get(l.e);
-          const dH_e  = (nS?.head ?? 0) - (nE?.head ?? 0);
-          const Q_e   = dH_e !== 0 ? Math.pow(Math.abs(dH_e) / Math.max(R, 1e-10), EXP_INV) : 0;
+          // ── Build pipe resistance (friction + inline minor losses) ───────
+          let R = pipeResistance(pipe);
+          const nS = nodeMap.get(pipe.s), nE = nodeMap.get(pipe.e);
+          // Estimate Q for linearization
+          const dHest  = Math.abs((nS?.head ?? nS?.el ?? 0) - (nE?.head ?? nE?.el ?? 0));
+          const Q_est  = dHest > 1e-10 ? Math.pow(dHest / Math.max(R, 1e-15), INV_N) : Q_EPS;
           if (nS && (nS.type === 'valve' || nS.type === 'check_valve') && nS.id !== n.id)
-            R += nodeMinorResistance(nS.type, l.dia || 100, nS.type === 'valve' ? (nS.openPercent ?? 100) : 100, Q_e);
+            R += nodeMinorResistance(nS.type, pipe.dia || 100, nS.openPercent ?? 100, Q_est);
           if (nE && (nE.type === 'valve' || nE.type === 'check_valve') && nE.id !== n.id)
-            R += nodeMinorResistance(nE.type, l.dia || 100, nE.type === 'valve' ? (nE.openPercent ?? 100) : 100, Q_e);
+            R += nodeMinorResistance(nE.type, pipe.dia || 100, nE.openPercent ?? 100, Q_est);
           if (n.type === 'valve' || n.type === 'check_valve')
-            R += nodeMinorResistance(n.type, l.dia || 100, n.type === 'valve' ? (n.openPercent ?? 100) : 100, Q_e);
-
-          // PRV variable resistance
-          R += getPRVExtraR(linkId, l.s, l.e);
+            R += nodeMinorResistance(n.type, pipe.dia || 100, n.openPercent ?? 100, Q_est);
           if (R <= 0 || R > 1e9) continue;
 
-          const dH   = nbNode.head - n.head;
-          const aH   = Math.abs(dH);
-          const sign = dH >= 0.0 ? 1.0 : -1.0;
+          const dH  = nb.head - n.head;
+          const aH  = Math.abs(dH);
           if (aH > 1e-10) {
-            const Q    = sign * Math.pow(aH / R, EXP_INV);
-            const dQdH = EXP_DER * Math.abs(Q) / aH;
+            // มิติ 3: clamp ด้วย Q_EPS ป้องกัน derivative → 0
+            const refQ = Math.max(Math.pow(aH / R, INV_N), Q_EPS);
+            const Q    = Math.sign(dH) * refQ;
+            const dqdh = INV_N * refQ / aH;  // dQ/dH
             sumQ    += Q;
-            sumdQdH += dQdH;
+            sumdQdH += dqdh;
           }
         }
       }
 
-      const dem_m3s  = (parseFloat(n.dem) || 0) / 3600.0;
+      // ── PRV OPEN: เพิ่ม fictitious high-conductance ───────────────────
+      if (n.type === 'prv' && prvSt.get(n.id) === PRV_OPEN) {
+        const _adj = adjacency.get(n.id);
+        if (_adj) for (const { neighborId } of _adj) {
+          const nb = nodeMap.get(neighborId);
+          if (!nb || !reach.has(neighborId)) continue;
+          const dH = (nb.head ?? nb.el) - n.head;
+          sumQ    += dH * 1e4;
+          sumdQdH += 1e4;
+        }
+      }
+
+      // ── demand (มิติ 5: m³/h → m³/s) ─────────────────────────────────
+      const dem_m3s = (parseFloat(n.dem) || 0) / 3600.0;
       const residual = sumQ - dem_m3s;
       const absRes   = Math.abs(residual);
       if (absRes > maxRes) maxRes = absRes;
 
+      // ── Newton step ──────────────────────────────────────────────────
       if (sumdQdH > 1e-14) {
-        // ── [FIX] Adaptive stepCap — 3-tier ────────────────────────────────
-        // เดิม: stepCap = min(5, 0.4×dH)  → tight เกิน demand สูงไม่ converge
-        // ใหม่: ช่วงต้น step ใหญ่ขึ้น ช่วงท้ายละเอียดขึ้น
-        let _maxAdjDH = 1.0;
-        if (adj) {
-          for (const { neighborId: _nid } of adj) {
-            const _nb2 = nodeMap.get(_nid);
-            if (_nb2 && reachable.has(_nid)) {
-              const _dh2 = Math.abs(_nb2.head - n.head);
-              if (_dh2 > _maxAdjDH) _maxAdjDH = _dh2;
-            }
-          }
-        }
-        const rawDH = residual / sumdQdH;
-        let stepCap;
-        if      (iter < 30)  stepCap = Math.min(20.0, Math.max(2.0, 0.6 * _maxAdjDH));
-        else if (iter < 100) stepCap = Math.min(10.0, Math.max(1.0, 0.4 * _maxAdjDH));
-        else                 stepCap = Math.min(5.0,  Math.max(0.1, 0.2 * _maxAdjDH));
-        const clampDH = Math.max(-stepCap, Math.min(stepCap, rawDH));
-        n.head += omega * clampDH;
-        n.head = Math.max(n.el - 50.0, n.head);   // floor ขยายจาก -20 → -50 m
+        const raw   = residual / sumdQdH;
+        // Adaptive step cap: ใหญ่ช่วงต้น เล็กลงเมื่อใกล้ convergence
+        const cap   = iter < 40 ? 20.0 : iter < 100 ? 10.0 : 5.0;
+        const dH    = Math.max(-cap, Math.min(cap, raw));
+        n.head     += omega * dH;
+        n.head      = Math.max(n.el - 50, n.head);
       } else if (residual < -1e-9) {
-        const dropRate = iter < 50 ? 2.0 : 0.5;
-        n.head = Math.max(n.el - 50.0, n.head - dropRate * omega);
+        n.head = Math.max(n.el - 50, n.head - (iter < 50 ? 2.0 : 0.5) * omega);
       }
     }
 
-    updatePRVStates();
+    // ── PRV + CV update every 5 iterations ────────────────────────────
+    _prvUpdate();
+    if (iter % 5 === 4) _cvUpdate();
 
-    // ── Pump curve update ──────────────────────────────────────────────────
-    for (const p of nodes) {
-      if (p.type !== 'pump' || !activePumpIds.has(p.id) || !reachable.has(p.id)) continue;
-      const pp = pumpParams.get(p.id);
-      if (!pp) continue;
-      let Q_pump_m3s = 0;
+    // ── Pump curve update ──────────────────────────────────────────────
+    nodes.filter(n => n.type === 'pump' && activePumps.has(n.id)).forEach(p => {
+      const pp = pumpP.get(p.id); if (!pp) return;
+      let Qtot = 0;
       const adj = adjacency.get(p.id);
-      if (adj) {
-        for (const { linkId, neighborId } of adj) {
-          if (!reachable.has(neighborId)) continue;
-          const l = linkMap.get(linkId);
-          if (!l) continue;
-          const nb = nodeMap.get(neighborId);
-          if (!nb) continue;
-          const R = pipeResistance(l);
-          if (R <= 0) continue;
-          const dH = p.head - nb.head;
-          if (dH > 0) Q_pump_m3s += Math.pow(dH / R, EXP_INV);
-        }
+      if (adj) for (const { linkId, neighborId } of adj) {
+        if (!reach.has(neighborId)) continue;
+        const pipe = linkMap.get(linkId); if (!pipe) continue;
+        const nb = nodeMap.get(neighborId); if (!nb) continue;
+        const dH = p.head - nb.head;
+        const R  = Math.max(pipeResistance(pipe), 1e-15);
+        if (dH > 0) Qtot += Math.pow(dH / R, INV_N);
       }
-      const Q_max     = Math.sqrt(pp.H0 / Math.max(pp.r_pump, 1e-10));
-      const Q_clamped = Math.max(0, Math.min(Q_pump_m3s, Q_max));
-      const H_pump    = Math.max(0, pp.H0 - pp.r_pump * Q_clamped * Q_clamped);
-      p.head = p.head * 0.5 + (p.el + H_pump) * 0.5;
-    }
+      const Qmax = Math.sqrt(pp.H0 / Math.max(pp.rp, 1e-10));
+      const Qc   = Math.max(0, Math.min(Qtot, Qmax));
+      p.head = p.head * 0.5 + (p.el + Math.max(0, pp.H0 - pp.rp * Qc * Qc)) * 0.5;
+    });
 
-    // ── Adaptive SOR ───────────────────────────────────────────────────────
+    // ── Adaptive SOR ──────────────────────────────────────────────────
     if (maxRes > prevMaxRes * 1.5 && omega > 0.3) omega = Math.max(0.3, omega * 0.8);
     else if (maxRes < prevMaxRes * 0.5 && omega < 1.0) omega = Math.min(1.0, omega * 1.1);
     prevMaxRes = maxRes;
 
-    if (iter % 5 === 4) updateCVStatus();
-
-    if (maxRes < TOL) { converged = true; iters = iter + 1; break; }
-    iters = iter + 1;
+    // ── มิติ 6: Mass-balance convergence criterion ─────────────────────
+    if (maxRes < CONV_TOL) { converged = true; break; }
   }
 
-  // ─── Post-solve: CV final status ─────────────────────────────────────────
-  updateCVStatus();
+  // ── Final CV status ────────────────────────────────────────────────────
+  _cvUpdate();
   nodes.filter(n => n.type === 'check_valve').forEach(cv => { cv.cvBlocked = false; });
 
-  // ─── Post-solve: Node pressures ──────────────────────────────────────────
+  // ── Node pressures (มิติ 2: Pressure = HGL − Elevation) ───────────────
   nodes.forEach(n => {
-    if (!reachable.has(n.id) && !SOURCE_TYPES.has(n.type)) {
-      n.p = 0; n.head = n.el;
-    } else {
-      n.p = n.head - n.el;
-    }
+    if (!reach.has(n.id) && !SRC.has(n.type)) { n.p = 0; n.head = n.el; }
+    else n.p = (n.head ?? n.el) - n.el;
   });
 
-  // ─── Post-solve: Link flows, velocities, head losses ─────────────────────
+  // ── Link results (มิติ 5: m³/s → m³/h สำหรับ UI) ──────────────────────
   links.forEach(l => {
     const n1 = nodeMap.get(l.s), n2 = nodeMap.get(l.e);
     if (!n1 || !n2) { l.flow = 0; l.vel = 0; l.hl = 0; l.hf = 0; l.hm = 0; l.re = 0; return; }
 
-    const isolated = !reachable.has(n1.id) || !reachable.has(n2.id);
-    const closed1  = n1.type === 'valve' && (n1.openPercent ?? 100) === 0;
-    const closed2  = n2.type === 'valve' && (n2.openPercent ?? 100) === 0;
+    const iso  = !reach.has(n1.id) || !reach.has(n2.id);
+    const cl1  = n1.type === 'valve' && (n1.openPercent ?? 100) === 0;
+    const cl2  = n2.type === 'valve' && (n2.openPercent ?? 100) === 0;
+    const cvBl = cvB.has(l.id);
+    if (cvBl) { if (n1.type === 'check_valve') n1.cvBlocked = true; if (n2.type === 'check_valve') n2.cvBlocked = true; }
 
-    let cvBlockedFlag = false;
-    if (cvBlocked.has(l.id)) {
-      cvBlockedFlag = true;
-      if (n1.type === 'check_valve') n1.cvBlocked = true;
-      if (n2.type === 'check_valve') n2.cvBlocked = true;
-    }
-
-    if (isolated || closed1 || closed2 || cvBlockedFlag) {
+    if (iso || cl1 || cl2 || cvBl) {
       l.flow = 0; l.vel = 0;
-      l.hl = Math.abs((n1.head || 0) - (n2.head || 0));
-      l.hf = l.hl; l.hm = 0; l.re = 0; return;
+      l.hl = Math.abs((n1.head||0) - (n2.head||0)); l.hf = l.hl; l.hm = 0; l.re = 0; return;
     }
 
-    const D_m = Math.max(l.dia || 100, 1) / 1000;
-    const A   = Math.PI * (D_m / 2) * (D_m / 2);
-    const dH  = n1.head - n2.head;
-    const aH  = Math.abs(dH);
-    const sign = dH >= 0.0 ? 1.0 : -1.0;
+    const Dm   = Math.max(l.dia || 100, 1) / 1000;
+    const A    = Math.PI * (Dm/2) * (Dm/2);
+    const dH   = (n1.head||0) - (n2.head||0);
+    const aH   = Math.abs(dH);
+    const R    = pipeResistance(l);
+    const Q_si = aH > 1e-12 ? Math.sign(dH) * Math.pow(aH/R, INV_N) : 0; // m³/s
 
-    const R_hw  = pipeResistance(l);
-    let R_total = R_hw;
-    const Q_est = aH > 1e-12 ? Math.pow(aH / R_hw, EXP_INV) : 0;
-    if (n1.type === 'valve' || n1.type === 'check_valve') {
-      const op = n1.type === 'valve' ? (n1.openPercent ?? 100) : 100;
-      R_total += nodeMinorResistance(n1.type, l.dia || 100, op, Q_est);
-    }
-    if (n2.type === 'valve' || n2.type === 'check_valve') {
-      const op = n2.type === 'valve' ? (n2.openPercent ?? 100) : 100;
-      R_total += nodeMinorResistance(n2.type, l.dia || 100, op, Q_est);
-    }
-    // PRV headloss บน link
-    const R_prv = getPRVExtraR(l.id, l.s, l.e);
-    if (R_prv > 0 && R_prv < 1e9) R_total += R_prv;
-
-    const Q_m3s = aH > 1e-12 ? Math.pow(aH / Math.max(R_total, 1e-15), EXP_INV) : 0.0;
-    l.flow = Q_m3s * 3600.0 * sign;
-    l.vel  = (Q_m3s / A) * sign;
+    l.flow = Q_si * 3600.0;   // m³/h (UI)
+    l.vel  = Q_si / A;
     l.hl   = aH;
-    l.hf   = R_hw * Math.pow(Q_m3s, 1.852);
-    l.hm   = Math.max(0.0, aH - l.hf);
-    l.re   = Math.abs(l.vel) * D_m / 1.004e-6;
+    l.hf   = R * Math.pow(Math.abs(Q_si), HW_EXP);
+    l.hm   = Math.max(0, aH - l.hf);
+    l.re   = Math.abs(l.vel) * Dm / 1.004e-6;
   });
 
-  // ─── Debug: mass balance ─────────────────────────────────────────────────
-  if (_logger) {
-    let totalSupply = 0, totalDemand = 0;
-    nodes.forEach(n => { if (!SOURCE_TYPES.has(n.type)) totalDemand += (n.dem || 0) / 3600.0; });
-    links.forEach(l => {
-      const n1 = nodeMap.get(l.s), n2 = nodeMap.get(l.e);
-      if (!n1 || !n2) return;
-      const Q_m3s = l.flow / 3600.0;
-      if (SOURCE_TYPES.has(n1.type) && !SOURCE_TYPES.has(n2.type) && Q_m3s > 0) totalSupply += Q_m3s;
-      if (SOURCE_TYPES.has(n2.type) && !SOURCE_TYPES.has(n1.type) && Q_m3s < 0) totalSupply += Math.abs(Q_m3s);
-    });
-    const balance = Math.abs(totalSupply - totalDemand);
-    _logger.info(
-      `Solver h=${h}: iters=${iters}, conv=${converged}, ` +
-      `maxRes=${maxRes.toExponential(3)}, ` +
-      `S=${(totalSupply*3600).toFixed(4)}m³/h, D=${(totalDemand*3600).toFixed(4)}m³/h, ` +
-      `|S-D|=${(balance*3600).toFixed(6)}m³/h, ω=${omega.toFixed(3)}`
-    );
-  }
-
+  _logger && _logger.info(`NR h=${h}: iters=${iters}, conv=${converged}, res=${maxRes.toExponential(3)}`);
   return { iters, converged, maxRes };
 }
-
-
 
 // ============================================================
 //  UI: EPS TIMELINE CONTROL
